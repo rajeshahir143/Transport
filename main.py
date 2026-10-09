@@ -139,8 +139,8 @@ class App(tk.Tk):
         except Exception as e:
             messagebox.showerror("PDF Import", str(e))
             return
-        if not d.get("do_no"):
-            messagebox.showerror("PDF Import", "DO / Order Number could not be detected.")
+        if not d.get("gmdc_do_no"):
+            messagebox.showerror("PDF Import", "GMDC DO Number could not be detected.")
             return
         # Open editable form pre-filled from PDF
         self._do_form(data=d, source_pdf=p)
@@ -182,7 +182,7 @@ class App(tk.Tk):
         w.geometry("640x620")
         w.transient(self)
         fields = [
-            ("do_no", "DO No"), ("do_date", "DO Date"),
+            ("gmdc_do_no", "GMDC DO No"), ("do_no", "DO No"), ("do_date", "DO Date"),
             ("customer_no", "Customer No"), ("customer_name", "Customer Name"),
             ("customer_gstin", "Customer GSTIN"), ("order_type", "Order Type"),
             ("bill_to", "Bill To"), ("ship_to", "Ship To"),
@@ -215,13 +215,13 @@ class App(tk.Tk):
                     used = _f(prev["qty"]) - _f(prev["remaining_qty"])
                     new_remaining = max(qty - used, 0)
                     con.execute(
-                        """UPDATE dos SET do_no=?, do_date=?, customer_no=?, customer_name=?,
+                        """UPDATE dos SET do_no=?, gmdc_do_no=?, do_date=?, customer_no=?, customer_name=?,
                            customer_gstin=?, order_type=?, bill_to=?, ship_to=?, state=?, hsn=?,
                            material=?, schedule_date=?, qty=?, uom=?, unit_price=?, extended_price=?,
                            transporter_code=?, transporter_name=?, order_total=?,
                            from_place=?, to_place=?, remaining_qty=?
                            WHERE id=?""",
-                        (vals["do_no"], vals["do_date"], vals["customer_no"], vals["customer_name"],
+                        (vals["do_no"], vals["gmdc_do_no"], vals["do_date"], vals["customer_no"], vals["customer_name"],
                          vals["customer_gstin"], vals["order_type"], vals["bill_to"], vals["ship_to"],
                          vals["state"], vals["hsn"], vals["material"], vals["schedule_date"],
                          qty, vals["uom"], _f(vals["unit_price"]), _f(vals["extended_price"]),
@@ -230,12 +230,12 @@ class App(tk.Tk):
                     )
                 else:
                     con.execute(
-                        """INSERT INTO dos(do_no,do_date,customer_no,customer_name,customer_gstin,
+                        """INSERT INTO dos(do_no,gmdc_do_no,do_date,customer_no,customer_name,customer_gstin,
                            order_type,bill_to,ship_to,state,hsn,material,schedule_date,qty,uom,
                            unit_price,extended_price,transporter_code,transporter_name,order_total,
                            from_place,to_place,remaining_qty,source_pdf)
-                           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                        (vals["do_no"], vals["do_date"], vals["customer_no"], vals["customer_name"],
+                           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                        (vals["do_no"], vals["gmdc_do_no"], vals["do_date"], vals["customer_no"], vals["customer_name"],
                          vals["customer_gstin"], vals["order_type"], vals["bill_to"], vals["ship_to"],
                          vals["state"], vals["hsn"], vals["material"], vals["schedule_date"],
                          qty, vals["uom"], _f(vals["unit_price"]), _f(vals["extended_price"]),
