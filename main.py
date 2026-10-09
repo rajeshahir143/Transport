@@ -257,56 +257,166 @@ class App(tk.Tk):
 
     # ===================== BUILTY TAB =====================
     def builty_tab(self, nb):
-        f = ttk.Frame(nb, padding=10)
-        nb.add(f, text="2 · Builty Entry")
-        top = ttk.Frame(f)
-        top.pack(fill="x")
-        ttk.Label(top, text="Pending DO (select to auto-fill Builty)", style="Head.TLabel").pack(side="left")
-        ttk.Button(top, text="Refresh", command=self.refresh_builty).pack(side="right")
+        f = ttk.Frame(nb, padding=8)
+        nb.add(f, text="Builty Entry")
+        # SWASTIK-inspired split view: editable form on the left, print preview on the right.
+        split = ttk.Panedwindow(f, orient="horizontal")
+        split.pack(fill="both", expand=True)
+        left = ttk.Frame(split, padding=(2, 2, 8, 2))
+        right = ttk.Frame(split, padding=(6, 2, 2, 2))
+        split.add(left, weight=3)
+        split.add(right, weight=2)
 
-        cols = ("id", "do_no", "customer", "material", "remaining", "to_place")
-        self.pd = ttk.Treeview(f, columns=cols, show="headings", height=8, selectmode="browse")
-        for c, h, w in zip(cols, ["ID", "DO No", "Customer", "Material", "Pending Qty", "To"],
-                           [50, 110, 230, 220, 110, 150]):
+        title = ttk.Frame(left)
+        title.pack(fill="x")
+        ttk.Label(title, text="Builty Entry", style="Title.TLabel").pack(side="left")
+        ttk.Button(title, text="Refresh", command=self.refresh_builty).pack(side="right")
+
+        form = ttk.LabelFrame(left, text="Builty Details", padding=8)
+        form.pack(fill="x", pady=(6, 5))
+        self.b_vars = {k: tk.StringVar() for k in (
+            "builty_no", "truck_no", "date", "qty", "from_place", "to_place",
+            "consignee", "driver_name", "mobile_no", "owner_name", "address",
+            "challan_no", "quota_date", "freight_rate", "freight_amount",
+            "pay_status", "cgst_rate", "sgst_rate", "remarks",
+        )}
+        self.b_vars["date"].set(__import__("datetime").date.today().strftime("%d/%m/%Y"))
+        self.b_vars["pay_status"].set("To Be Billed")
+        self.b_vars["cgst_rate"].set("0")
+        self.b_vars["sgst_rate"].set("0")
+
+        pending_box = ttk.LabelFrame(left, text="Pending DO — select a DO to auto-fill details", padding=5)
+        pending_box.pack(fill="x", pady=4)
+        cols = ("id", "do_no", "customer", "material", "remaining")
+        self.pd = ttk.Treeview(pending_box, columns=cols, show="headings", height=4, selectmode="browse")
+        for c, h, w in zip(cols, ("ID", "DO No", "Party Name", "Item Name", "Pending TON"), (42, 105, 185, 130, 90)):
             self.pd.heading(c, text=h)
-            self.pd.column(c, width=w)
-        self.pd.pack(fill="x", pady=6)
+            self.pd.column(c, width=w, anchor="w" if c in ("customer", "material") else "center")
+        self.pd.pack(fill="x")
         self.pd.bind("<<TreeviewSelect>>", self._on_pending_do_select)
 
-        form = ttk.LabelFrame(f, text="Create Builty", padding=10)
-        form.pack(fill="x", pady=8)
-        self.b_vars = {k: tk.StringVar() for k in (
-            "builty_no", "truck_no", "date", "qty",
-            "from_place", "to_place", "consignee", "driver_name",
-            "ewaybill", "freight_rate", "freight_amount", "remarks",
-        )}
-        layout = [
-            ("Builty No", "builty_no"), ("Date", "date"), ("Truck No", "truck_no"),
-            ("Loaded Qty (TON)", "qty"), ("From", "from_place"), ("To", "to_place"),
-            ("Consignee", "consignee"), ("Driver", "driver_name"), ("E-Way Bill", "ewaybill"),
-            ("Freight Rate/TON", "freight_rate"), ("Freight Amount", "freight_amount"), ("Remarks", "remarks"),
+        do_box = ttk.LabelFrame(left, text="DO Details (Auto from DO)", padding=7)
+        do_box.pack(fill="x", pady=4)
+        self.b_do_summary = tk.StringVar(value="Select a pending DO to show party, GSTIN, material, mines, quota and registration details.")
+        ttk.Label(do_box, textvariable=self.b_do_summary, justify="left", wraplength=650).pack(anchor="w")
+
+        transport = ttk.LabelFrame(left, text="Transport Details", padding=7)
+        transport.pack(fill="x", pady=4)
+        fields = [
+            ("Builty No.", "builty_no"), ("Date", "date"), ("DO No.", "to_place"),
+            ("Truck No.", "truck_no"), ("Driver Name", "driver_name"), ("Mobile No.", "mobile_no"),
+            ("Truck Owner Name", "owner_name"), ("Address", "address"), ("Challan No.", "challan_no"),
+            ("Quota Date", "quota_date"), ("Actual Weight (TON)", "qty"),
+            ("Freight Rate", "freight_rate"), ("Freight (Rs.)", "freight_amount"),
         ]
-        for i, (lab, k) in enumerate(layout):
-            ttk.Label(form, text=lab).grid(row=i // 4, column=(i % 4) * 2, padx=5, pady=4, sticky="w")
-            e = ttk.Entry(form, textvariable=self.b_vars[k], width=18)
-            e.grid(row=i // 4, column=(i % 4) * 2 + 1, padx=5, pady=4)
-            if k in ("qty", "freight_rate"):
-                self.b_vars[k].trace_add("write", lambda *_: self._recalc_freight())
+        for i, (label, key) in enumerate(fields):
+            r, col = divmod(i, 3)
+            ttk.Label(transport, text=label).grid(row=r, column=col*2, padx=4, pady=3, sticky="w")
+            ent = ttk.Entry(transport, textvariable=self.b_vars[key], width=17)
+            ent.grid(row=r, column=col*2+1, padx=4, pady=3, sticky="ew")
+            if key in ("qty", "freight_rate"):
+                self.b_vars[key].trace_add("write", lambda *_: self._recalc_freight())
+            self.b_vars[key].trace_add("write", lambda *_: self.update_builty_preview())
+        for col in range(6):
+            transport.columnconfigure(col, weight=1)
 
-        btn_row = ttk.Frame(form)
-        btn_row.grid(row=3, column=0, columnspan=8, pady=6, sticky="e")
-        ttk.Button(btn_row, text="Create & Print Builty", command=self.create_builty).pack(side="right")
+        other = ttk.LabelFrame(left, text="Other Details / Accounts", padding=7)
+        other.pack(fill="x", pady=4)
+        for i, (label, key) in enumerate([("CGST %", "cgst_rate"), ("SGST %", "sgst_rate"), ("To Pay / Paid", "pay_status")]):
+            ttk.Label(other, text=label).grid(row=0, column=i*2, padx=4, pady=3, sticky="w")
+            if key == "pay_status":
+                ttk.Combobox(other, textvariable=self.b_vars[key], values=("To Be Billed", "Paid", "To Pay"), width=15, state="readonly").grid(row=0, column=i*2+1, padx=4, pady=3)
+            else:
+                ttk.Entry(other, textvariable=self.b_vars[key], width=10).grid(row=0, column=i*2+1, padx=4, pady=3)
+        ttk.Label(other, text="Shortage / Remarks").grid(row=1, column=0, padx=4, pady=3, sticky="w")
+        ttk.Entry(other, textvariable=self.b_vars["remarks"]).grid(row=1, column=1, columnspan=5, padx=4, pady=3, sticky="ew")
 
-        ttk.Label(f, text="Recent Builty (double-click to re-print PDF)", style="Head.TLabel").pack(anchor="w", pady=(10, 3))
-        bcols = ("id", "no", "do", "truck", "date", "qty", "freight", "billed", "paid")
-        self.bt = ttk.Treeview(f, columns=bcols, show="headings", height=10)
-        for c, h, w in zip(bcols, ("ID", "Builty No", "DO No", "Truck", "Date", "Qty", "Freight", "Bill", "Freight Paid"),
-                           [50, 110, 100, 110, 95, 85, 95, 85, 110]):
+        buttons = ttk.Frame(left)
+        buttons.pack(fill="x", pady=5)
+        ttk.Button(buttons, text="＋ New", command=self.clear_builty_form).pack(side="left", padx=2)
+        ttk.Button(buttons, text="Save / Create", command=self.create_builty).pack(side="left", padx=2)
+        ttk.Button(buttons, text="Print", command=self.reprint_builty).pack(side="left", padx=2)
+        ttk.Button(buttons, text="Cancel", command=self.clear_builty_form).pack(side="left", padx=2)
+
+        ttk.Label(left, text="Saved Builty List", style="Head.TLabel").pack(anchor="w", pady=(4, 2))
+        bcols = ("id", "no", "do", "party", "date", "truck", "qty", "freight", "status")
+        self.bt = ttk.Treeview(left, columns=bcols, show="headings", height=6)
+        for c, h, w in zip(bcols, ("ID", "Builty No.", "DO No.", "Party Name", "Date", "Truck No.", "Weight", "Amount", "Status"),
+                           (35, 75, 90, 150, 82, 95, 72, 78, 72)):
             self.bt.heading(c, text=h)
-            self.bt.column(c, width=w)
+            self.bt.column(c, width=w, anchor="center")
         self.bt.pack(fill="both", expand=True)
         self.bt.bind("<Double-1>", lambda _e: self.reprint_builty())
+
+        # Print preview pane, similar to the supplied target screenshot.
+        preview_head = ttk.Frame(right)
+        preview_head.pack(fill="x")
+        ttk.Button(preview_head, text="Print Preview", command=self.update_builty_preview).pack(side="left")
+        ttk.Button(preview_head, text="Print / Open PDF", command=self.reprint_builty).pack(side="left", padx=4)
+        ttk.Button(preview_head, text="Export PDF", command=self.reprint_builty).pack(side="left")
+        ttk.Label(right, text="Builty Print Preview", style="Head.TLabel").pack(anchor="w", pady=(10, 5))
+        self.b_preview = tk.Text(right, wrap="word", font=("Courier New", 10), background="white",
+                                 relief="solid", borderwidth=1, padx=14, pady=14)
+        self.b_preview.pack(fill="both", expand=True)
+        self.update_builty_preview()
         self.refresh_builty()
+
+    def clear_builty_form(self):
+        for key, var in self.b_vars.items():
+            var.set("")
+        self.b_vars["date"].set(__import__("datetime").date.today().strftime("%d/%m/%Y"))
+        self.b_vars["pay_status"].set("To Be Billed")
+        self.b_vars["cgst_rate"].set("0")
+        self.b_vars["sgst_rate"].set("0")
+        self.b_do_summary.set("Select a pending DO to show party, GSTIN, material, mines, quota and registration details.")
+        self.update_builty_preview()
+
+    def update_builty_preview(self):
+        if not hasattr(self, "b_preview"):
+            return
+        v = {k: var.get().strip() for k, var in self.b_vars.items()}
+        summary = self.b_do_summary.get()
+        amount = _f(v.get("freight_amount"))
+        cgst = amount * _f(v.get("cgst_rate")) / 100
+        sgst = amount * _f(v.get("sgst_rate")) / 100
+        total = amount + cgst + sgst
+        lines = [
+            "AT OWNER'S RISK",
+            "",
+            "                 MANSI COAL CAREER",
+            "       LIGNITE SUPPLIER & COMMISSION AGENT",
+            "",
+            "=" * 62,
+            f"L.R. No.: {v.get('builty_no','')}       L.R. Date: {v.get('date','')}",
+            "=" * 62,
+            " : CONSIGNOR :                         : CONSIGNEE :",
+            f"{FIRM.get('name',''):<34} {v.get('consignee','')}",
+            f"GSTIN: {FIRM.get('gstin',''):<27}",
+            "",
+            f"DO No.: {v.get('to_place','')}   Challan No.: {v.get('challan_no','')}   Quota Dt.: {v.get('quota_date','')}",
+            "-" * 62,
+            "Description                         Weight     Freight",
+            "-" * 62,
+            f"LIGNITE / MATERIAL                   {v.get('qty','')}       {amount:.2f}",
+            "",
+            f"Truck No.: {v.get('truck_no','')}",
+            f"Driver's Name: {v.get('driver_name','')}     Mobile No.: {v.get('mobile_no','')}",
+            f"Address: {v.get('address','')}",
+            f"Truck Owner Name: {v.get('owner_name','')}",
+            "",
+            f"CGST {_f(v.get('cgst_rate')):.2f}%: {cgst:.2f}",
+            f"SGST {_f(v.get('sgst_rate')):.2f}%: {sgst:.2f}",
+            f"Total: {total:.2f}    To Pay / Paid: {v.get('pay_status','')}",
+            "",
+            v.get("remarks") or "200 Kg. Shortage allowed. We are not responsible for quality. Lignite direct loading from mines.",
+            "GST TO BE PAID UNDER RCM",
+            "",
+            "                                            For MANSI COAL CAREER",
+        ]
+        self.b_preview.configure(state="normal")
+        self.b_preview.delete("1.0", "end")
+        self.b_preview.insert("1.0", "\n".join(lines))
+        self.b_preview.configure(state="disabled")
 
     def _on_pending_do_select(self, _e=None):
         sel = self.pd.selection()
