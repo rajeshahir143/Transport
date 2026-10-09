@@ -275,7 +275,7 @@ class App(tk.Tk):
         form = ttk.LabelFrame(left, text="Builty Details", padding=8)
         form.pack(fill="x", pady=(6, 5))
         self.b_vars = {k: tk.StringVar() for k in (
-            "builty_no", "truck_no", "date", "qty", "from_place", "to_place",
+            "builty_no", "truck_no", "date", "qty", "do_no", "from_place", "to_place",
             "consignee", "driver_name", "mobile_no", "owner_name", "address",
             "challan_no", "quota_date", "freight_rate", "freight_amount",
             "pay_status", "cgst_rate", "sgst_rate", "remarks",
@@ -303,7 +303,7 @@ class App(tk.Tk):
         transport = ttk.LabelFrame(left, text="Transport Details", padding=7)
         transport.pack(fill="x", pady=4)
         fields = [
-            ("Builty No.", "builty_no"), ("Date", "date"), ("DO No.", "to_place"),
+            ("Builty No.", "builty_no"), ("Date", "date"), ("DO No.", "do_no"),
             ("Truck No.", "truck_no"), ("Driver Name", "driver_name"), ("Mobile No.", "mobile_no"),
             ("Truck Owner Name", "owner_name"), ("Address", "address"), ("Challan No.", "challan_no"),
             ("Quota Date", "quota_date"), ("Actual Weight (TON)", "qty"),
@@ -393,7 +393,7 @@ class App(tk.Tk):
             f"{FIRM.get('name',''):<34} {v.get('consignee','')}",
             f"GSTIN: {FIRM.get('gstin',''):<27}",
             "",
-            f"DO No.: {v.get('to_place','')}   Challan No.: {v.get('challan_no','')}   Quota Dt.: {v.get('quota_date','')}",
+            f"DO No.: {v.get('do_no','')}   Challan No.: {v.get('challan_no','')}   Quota Dt.: {v.get('quota_date','')}",
             "-" * 62,
             "Description                         Weight     Freight",
             "-" * 62,
@@ -430,6 +430,7 @@ class App(tk.Tk):
         if not row:
             return
         pending = _f(row["remaining_qty"])
+        self.b_vars["do_no"].set(row["do_no"] or "")
         self.b_vars["from_place"].set(row["from_place"] or "BHAVNAGAR")
         self.b_vars["to_place"].set(row["to_place"] or "")
         self.b_vars["consignee"].set(row["customer_name"] or "")
@@ -438,7 +439,15 @@ class App(tk.Tk):
         rate = lookup_rate(row["from_place"], row["to_place"], row["material"])
         if rate and not self.b_vars["freight_rate"].get():
             self.b_vars["freight_rate"].set(f"{rate:.2f}")
+        self.b_do_summary.set(
+            f"Party Name: {row['customer_name'] or ''}     GSTIN: {row['customer_gstin'] or ''}\\n"
+            f"Customer No.: {row['customer_no'] or ''}     Item: {row['material'] or ''}\\n"
+            f"Mines / From: {row['from_place'] or 'BHAVNAGAR'}     Quota Date: {row['schedule_date'] or ''}\\n"
+            f"DO No.: {row['do_no'] or ''}     Total TON: {row['qty'] or 0}     Pending TON: {pending:.3f}\\n"
+            "Regi. No.: (party master integration pending)"
+        )
         self._recalc_freight()
+        self.update_builty_preview()
 
     def _recalc_freight(self):
         q = _f(self.b_vars["qty"].get())
