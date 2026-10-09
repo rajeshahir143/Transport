@@ -50,7 +50,8 @@ def parse_pdf(path):
         r"\b1\s+(.+?)\s+([0-9]{2}-[A-Z]{3}-[0-9]{2})\s+([0-9,]+(?:\.[0-9]+)?)\s+([A-Z]+)\s+([0-9,]+(?:\.[0-9]+)?)\s+([0-9,]+(?:\.[0-9]+)?)",
         text, re.I | re.S)
     data = {
-        "do_no": grab(r"\b(?:Order Number|Delivery Order)\s*[:#*]?\s*([0-9]{8,})"),
+        "do_no": "",
+        "gmdc_do_no": grab(r"\b(?:Order Number|Delivery Order)\s*[:#*]?\s*([0-9]{8,})"),
         "do_date": grab(r"\bOrder Date\s*[:#]?\s*([0-9A-Z-]+)"),
         "customer_no": customer_no,
         "customer_name": customer_name,
