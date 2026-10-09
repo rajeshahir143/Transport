@@ -22,6 +22,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS dos(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             do_no TEXT UNIQUE,
+            gmdc_do_no TEXT,
             do_date TEXT,
             customer_no TEXT,
             customer_name TEXT,
@@ -130,6 +131,10 @@ def init_db():
         );
         """
     )
+    # Backward-compatible migration for databases created by older builds.
+    existing = {row[1] for row in con.execute("PRAGMA table_info(dos)")}
+    if "gmdc_do_no" not in existing:
+        con.execute("ALTER TABLE dos ADD COLUMN gmdc_do_no TEXT")
     con.commit()
     con.close()
 
