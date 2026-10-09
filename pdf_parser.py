@@ -34,7 +34,7 @@ def parse_pdf(path):
     # Prefer the company name, not the next field label. GMDC layouts sometimes
     # extract labels and values in a different column order.
     customer_name = grab(
-        r"\b(PRABHAKAR\s+PROCESSORS\s+PVT\.?\s*LTD\.{0,2})\b",
+        r"(PRABHAKAR\s+PROCESSORS\s+PVT\.?\s*LTD\.{0,2})",
     )
     if not customer_name:
         customer_name = grab(
