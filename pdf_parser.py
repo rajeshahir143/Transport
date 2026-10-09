@@ -1,8 +1,4 @@
-"PDF parsing for GMDC Delivery Order PDFs.
-
-The GMDC PDF text extractor may emit labels and values on separate lines OR
-multiple columns on the same line. Keep field extraction tolerant of both.
-"""
+""""Robust field extraction for GMDC Delivery Order PDFs."""
 import re
 
 try:
@@ -14,114 +10,120 @@ except Exception:  # pragma: no cover
 def _num(s):
     if s is None:
         return 0.0
-    s = str(s).replace(",", "").strip()
-    m = re.search(r"-?\d+(?:\.\d+)?", s)
+    m = re.search(r"-?\\d[\\d,]*(?:\\.\\d+)?", str(s))
     try:
-        return float(m.group()) if m else 0.0
+        return float(m.group().replace(",", "")) if m else 0.0
     except Exception:
         return 0.0
 
 
 def _clean(value):
-    return re.sub(r"\s+", " ", str(value or "")).strip(" \t:-")
+    return re.sub(r"\\s+", " ", (value or "")).strip(" :\\t")
 
 
 def _label_value(text, label, stop_labels=()):
-    """Get a value after a label, including when PDF columns share a line."""
-    labels = ("Customer Number", "Customer Name", "Customer GSTIN", "Order Number",
-              "Order Date", "Order Type", "Bill To", "Ship To", "State",
-              "HSN Code", "Description of Goods", "Transporter Code",
-              "Transporter Name", "ORDER TOTAL", "Total Qty")
-    stops = list(stop_labels) or [x for x in labels if x.lower() != label.lower()]
-    stop = "|".join(re.escape(x) for x in sorted(stops, key=len, reverse=True))
-    # Value can start on the same line or next line; stop before another known label.
-    pattern = rf"{re.escape(label)}\s*:?\s*(.*?)(?=\s+(?:{stop})\b|\s*\n\s*(?:{stop})\b|$)"
-    m = re.search(pattern, text, re.I | re.S)
+    """Find a value after a label whether the PDF puts it on this or next line."""
+    labels = ["Customer Number", "Customer No", "Customer Name", "Customer GSTIN",
+              "Order Number", "Order Date", "Order Type", "Bill To", "Ship To",
+              "State", "HSN Code", "Description of Goods", "Transporter Code",
+              "Transporter Name", "ORDER TOTAL", "Total Qty"]
+    labels = sorted(set(labels + list(stop_labels)), key=len, reverse=True)
+    stop = "|".join(re.escape(x) for x in labels if x.lower() != label.lower())
+    pattern = rf"{re.escape(label)}\\s*[:#]?\\s*(.*?)(?=\\s+(?:{stop})\\b|[\\r\\n]+|$)"
+    m = re.search(pattern, text, re.I)
+    value = _clean(m.group(1)) if m else ""
+    if value and value.lower() not in (label.lower(),):
+        return value
+    # Label and value may be separated by one or more line breaks in extracted text.
+    pattern = rf"{re.escape(label)}\\s*[:#]?\\s*[\\r\\n]+\\s*([^\\r\\n]+)"
+    m = re.search(pattern, text, re.I)
     return _clean(m.group(1)) if m else ""
 
 
 def parse_pdf(path):
-    """Extract Delivery Order fields from GMDC PDF text, including column layouts."""
+    """Extract DO fields from GMDC PDF text; avoid confusing customer number and GSTIN."""
     if PdfReader is None:
         raise RuntimeError("pypdf is not installed. Run: pip install pypdf")
-
-    text = "\n".join((p.extract_text() or "") for p in PdfReader(path).pages)
-    text = text.replace("\r", "\n")
-    # Normalize PDF whitespace but preserve line boundaries for date/table matching.
-    text = re.sub(r"[ \t]+", " ", text)
+    text = "\\n".join((p.extract_text() or "") for p in PdfReader(path).pages)
+    text = text.replace("\\u00a0", " ")
 
     def grab(pattern, default=""):
-        m = re.search(pattern, text, re.I | re.M | re.S)
+        m = re.search(pattern, text, re.I | re.M)
         return _clean(m.group(1)) if m else default
 
+    do_no = grab(r"Order Number\\s*[:#]?\\s*([0-9]+)",
+                 grab(r"Delivery Order\\s*\\*?([0-9]{8,})\\*?"))
+    do_date = grab(r"Order Date\\s*[:#]?\\s*([0-9A-Z-]+)")
+
+    # Capture GSTIN-shaped tokens independently of the PDF's column reading order.
+    gstins = re.findall(r"\\b[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][A-Z0-9]Z[A-Z0-9]\\b", text, re.I)
+    gstins = [g.upper() for g in gstins]
+    customer_gstin = ""
+    for gst in gstins:
+        if gst != "24AAACG7987P1ZT":
+            customer_gstin = gst
+            break
+
+    customer_no = _label_value(text, "Customer Number")
+    if not customer_no:
+        customer_no = _label_value(text, "Customer No")
+    # Only accept numeric customer IDs; never accept a GSTIN or another label.
+    m = re.search(r"Customer\\s+(?:Number|No)\\s*[:#]?\\s*(?:[\\r\\n]+\\s*)?([0-9]{3,12})\\b", text, re.I)
+    if m:
+        customer_no = m.group(1)
+    if not customer_no.isdigit():
+        customer_no = ""
+
+    customer_name = _label_value(text, "Customer Name", ("Customer GSTIN",))
+    # PDFs often extract side-by-side columns in a different sequence. Use the
+    # text between Customer Name and the next known field as a fallback.
+    if not customer_name:
+        m = re.search(r"Customer Name\\s*[:#]?\\s*[\\r\\n]+\\s*(.+?)(?=\\s*Customer GSTIN|\\s*Bill To|\\s*Ship To|\\s*State\\b)", text, re.I | re.S)
+        if m:
+            customer_name = _clean(m.group(1))
+    # Reject field labels and numbers accidentally captured as a party name.
+    if customer_name and re.search(r"^(Customer GSTIN|Customer Number|\\d{3,})$", customer_name, re.I):
+        customer_name = ""
+
     data = {
-        "do_no": grab(r"Order Number\s*:?\s*([0-9]+)",
-                      grab(r"Delivery Order\s*\*?([0-9]+)\*?")),
-        "do_date": grab(r"Order Date\s*:?\s*([0-9A-Z-]+)"),
-        "customer_no": "",
-        "customer_name": "",
-        "customer_gstin": "",
-        "order_type": "",
-        "bill_to": "",
-        "ship_to": "",
-        "state": "",
-        "hsn": "",
-        "material": "",
+        "do_no": do_no,
+        "do_date": do_date,
+        "customer_no": customer_no,
+        "customer_name": customer_name,
+        "customer_gstin": customer_gstin or _label_value(text, "Customer GSTIN"),
+        "order_type": _label_value(text, "Order Type"),
+        "bill_to": _label_value(text, "Bill To", ("Ship To", "State")),
+        "ship_to": _label_value(text, "Ship To", ("State", "HSN Code")),
+        "state": grab(r"State\\s*:\\s*([A-Z ]+?)\\s+HSN"),
+        "hsn": grab(r"HSN Code\\s*:\\s*([0-9]+)"),
+        "material": grab(r"Description of Goods\\s*:\\s*(.+?)(?:\\r?\\n|$)"),
         "schedule_date": "",
-        "transporter_code": "",
-        "transporter_name": "",
+        "qty": 0.0,
+        "uom": "TON",
+        "unit_price": 0.0,
+        "extended_price": 0.0,
+        "transporter_code": _label_value(text, "Transporter Code"),
+        "transporter_name": _label_value(text, "Transporter Name"),
+        "order_total": _num(grab(r"ORDER TOTAL\\s+([0-9,]+(?:\\.[0-9]+)?)")),
         "from_place": "BHAVNAGAR",
         "to_place": "",
     }
 
-    # Prefer exact labelled values; fallback to line/column-aware patterns.
-    data["customer_no"] = grab(r"Customer Number\s*:?\s*([0-9]{3,})")
-    if not data["customer_no"]:
-        data["customer_no"] = _label_value(text, "Customer Number")
-    data["customer_gstin"] = grab(r"Customer GSTIN\s*:?\s*((?:[0-9]{2})[A-Z0-9]{10,})")
-    if not data["customer_gstin"]:
-        # GSTIN is a 15-character alphanumeric token. Do not mistake customer number for GSTIN.
-        candidates = re.findall(r"\b[0-9]{2}[A-Z]{4,5}[0-9A-Z]{8,9}\b", text)
-        data["customer_gstin"] = next((v for v in candidates if v != grab(r"GSTIN\s*:?\s*([0-9A-Z]+)")), "")
-    data["customer_name"] = _label_value(
-        text, "Customer Name",
-        ("Customer GSTIN", "Customer Number", "Order Number", "Order Date", "Order Type",
-         "Bill To", "Ship To", "State", "HSN Code", "Description of Goods",
-         "Transporter Code", "Transporter Name", "ORDER TOTAL")
-    )
-    if not data["customer_name"]:
-        m = re.search(r"Customer Name\s*:?\s*\n?\s*(.{2,100}?)(?=\n\s*(?:Customer GSTIN|GSTIN|Customer Number|Order Type)\b)", text, re.I | re.S)
-        if m:
-            data["customer_name"] = _clean(m.group(1))
-    data["order_type"] = _label_value(text, "Order Type")
-    data["bill_to"] = _label_value(text, "Bill To", ("Ship To", "State", "HSN Code", "Description of Goods"))
-    data["ship_to"] = _label_value(text, "Ship To", ("State", "HSN Code", "Description of Goods", "Transporter Code"))
-    data["state"] = grab(r"State\s*:\s*([A-Z ]+?)\s+HSN")
-    data["hsn"] = grab(r"HSN Code\s*:\s*([0-9]+)")
-    data["material"] = grab(r"Description of Goods\s*:\s*(.+?)(?:\n|$)")
-    data["transporter_code"] = grab(r"Transporter Code\s*:\s*([A-Z0-9]+)")
-    data["transporter_name"] = grab(r"Transporter Name\s*:\s*(.+?)(?:\n|$)")
-
-    # GMDC item table: item, schedule date, quantity, UOM, unit price, extended price.
+    # GMDC line-item row: description, schedule date, quantity, UOM, unit price, extended price.
     m = re.search(
-        r"\b1\s+(.+?)\s+([0-9]{2}-[A-Z]{3}-[0-9]{2})\s+([0-9,.]+)\s+([A-Z]+)\s+([0-9,.]+)\s+([0-9,.]+)",
+        r"\\b1\\s+(.+?)\\s+([0-9]{2}-[A-Z]{3}-[0-9]{2})\\s+([0-9,]+(?:\\.[0-9]+)?)\\s+([A-Z]+)\\s+([0-9,]+(?:\\.[0-9]+)?)\\s+([0-9,]+(?:\\.[0-9]+)?)",
         text, re.I | re.S,
     )
     if m:
         data["material"] = data["material"] or _clean(m.group(1))
-        data["schedule_date"] = _clean(m.group(2))
+        data["schedule_date"] = m.group(2).upper()
         data["qty"] = _num(m.group(3))
-        data["uom"] = _clean(m.group(4)).upper()
+        data["uom"] = m.group(4).upper()
         data["unit_price"] = _num(m.group(5))
         data["extended_price"] = _num(m.group(6))
     else:
-        data["schedule_date"] = grab(r"Schedule Date\s*:?\s*([0-9]{2}-[A-Z]{3}-[0-9]{2})")
-        data["qty"] = _num(grab(r"(?:Total Qty|Quantity)\s*:?\s*([0-9,.]+)"))
-        data["uom"] = grab(r"\bTON\b", "TON")
-        data["unit_price"] = _num(grab(r"Unit Price\s*:?\s*([0-9,.]+)"))
-        data["extended_price"] = _num(grab(r"Extended Price\s*:?\s*([0-9,.]+)"))
+        data["qty"] = _num(grab(r"Total Qty\\s*[: ]+([0-9,]+(?:\\.[0-9]+)?)"))
 
-    data["order_total"] = _num(grab(r"ORDER TOTAL\s*:?\s*([0-9,.]+)"))
     if data["ship_to"]:
         data["to_place"] = data["ship_to"].splitlines()[0].strip()[:60]
     return data
