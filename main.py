@@ -268,8 +268,10 @@ class App(tk.Tk):
         title = ttk.Frame(left)
         title.pack(fill="x")
         ttk.Label(title, text="Builty Entry", style="Title.TLabel").pack(side="left")
+        # Keep Save visible beside the title instead of letting it get clipped by
+        # the many navigation buttons on the right.
+        ttk.Button(title, text="💾 Save Builty", command=self.create_builty).pack(side="left", padx=(18, 4))
         ttk.Button(title, text="Cancel", command=self.clear_builty_form).pack(side="right", padx=2)
-        ttk.Button(title, text="Save", command=self.create_builty).pack(side="right", padx=2)
         ttk.Button(title, text="Next ▶", command=lambda: self.navigate_builty(1)).pack(side="right", padx=2)
         ttk.Button(title, text="◀ Previous", command=lambda: self.navigate_builty(-1)).pack(side="right", padx=2)
         ttk.Button(title, text="Delete", command=self.delete_selected_builty).pack(side="right", padx=2)
@@ -357,7 +359,7 @@ class App(tk.Tk):
         ttk.Button(buttons, text="Edit Selected", command=self.load_selected_builty).pack(side="left", padx=2)
         ttk.Button(buttons, text="◀ Previous", command=lambda: self.navigate_builty(-1)).pack(side="left", padx=2)
         ttk.Button(buttons, text="Next ▶", command=lambda: self.navigate_builty(1)).pack(side="left", padx=2)
-        ttk.Button(buttons, text="Save / Create", command=self.create_builty).pack(side="left", padx=2)
+        ttk.Button(buttons, text="💾 Save Builty", command=self.create_builty).pack(side="left", padx=2)
         ttk.Button(buttons, text="Print Preview", command=self.preview_selected_builty).pack(side="left", padx=2)
         ttk.Button(buttons, text="Print / Open PDF", command=self.reprint_builty).pack(side="left", padx=2)
         ttk.Button(buttons, text="Cancel", command=self.clear_builty_form).pack(side="left", padx=2)
