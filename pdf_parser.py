@@ -21,7 +21,7 @@ def parse_pdf(path):
     flat = _clean(text)
     def grab(pattern, default=""):
         m = re.search(pattern, flat, re.I)
-        return _clean(m.group(1)) if m else default
+        return _clean(m.group(1) if m.lastindex else m.group(0)) if m else default
 
     gstins = [g.upper() for g in re.findall(
         r"\b[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][A-Z0-9]Z[A-Z0-9]\b", flat, re.I)]
