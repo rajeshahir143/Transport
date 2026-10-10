@@ -271,6 +271,10 @@ class App(tk.Tk):
         title.pack(fill="x")
         ttk.Label(title, text="Builty Entry", style="Title.TLabel").pack(side="left")
         ttk.Button(title, text="Refresh", command=self.refresh_builty).pack(side="right")
+        ttk.Button(title, text="Next ▶", command=lambda: self.navigate_builty(1)).pack(side="right", padx=3)
+        ttk.Button(title, text="◀ Previous", command=lambda: self.navigate_builty(-1)).pack(side="right", padx=3)
+        ttk.Button(title, text="Edit Selected", command=self.load_selected_builty).pack(side="right", padx=3)
+        ttk.Button(title, text="＋ New", command=self.clear_builty_form).pack(side="right", padx=3)
 
         form = ttk.LabelFrame(left, text="Builty Details", padding=8)
         form.pack(fill="x", pady=(6, 5))
@@ -297,8 +301,8 @@ class App(tk.Tk):
 
         do_box = ttk.LabelFrame(left, text="DO Details (Auto from DO)", padding=7)
         do_box.pack(fill="x", pady=4)
-        self.b_do_summary = tk.StringVar(value="Select a pending DO to show party, GSTIN, material, mines, quota and registration details.")
-        ttk.Label(do_box, textvariable=self.b_do_summary, justify="left", wraplength=650).pack(anchor="w")
+        self.b_do_summary = tk.StringVar(value="Select a pending DO to auto-fill party, GSTIN, material and available quantity.")
+        ttk.Label(do_box, textvariable=self.b_do_summary, justify="left", wraplength=600).pack(anchor="w")
 
         transport = ttk.LabelFrame(left, text="Transport Details", padding=7)
         transport.pack(fill="x", pady=4)
@@ -413,10 +417,14 @@ class App(tk.Tk):
                 self.b_vars[target].set(str(row[source]))
         if do_row:
             self.b_vars["do_no"].set(do_row["do_no"] or "")
+            material = (do_row["material"] or "").strip()
+            if len(material) > 90:
+                material = material[:87] + "..."
             self.b_do_summary.set(
-                f"Party Name: {do_row['customer_name'] or ''}    GSTIN: {do_row['customer_gstin'] or ''}\\n"
-                f"Customer No.: {do_row['customer_no'] or ''}    Item: {do_row['material'] or ''}\\n"
-                f"Total TON: {do_row['qty'] or 0}    Pending TON: {do_row['remaining_qty'] or 0}"
+                f"Party: {do_row['customer_name'] or '-'}    GSTIN: {do_row['customer_gstin'] or '-'}\\n"
+                f"Customer No.: {do_row['customer_no'] or '-'}    Material: {material or '-'}\\n"
+                f"GMDC DO: {do_row['gmdc_do_no'] or '-'}    Internal DO: {do_row['do_no'] or '-'}\\n"
+                f"Total: {_f(do_row['qty']):.3f} TON    Pending: {_f(do_row['remaining_qty']):.3f} TON"
             )
         self.update_builty_preview()
 
