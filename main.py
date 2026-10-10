@@ -397,8 +397,7 @@ class App(tk.Tk):
                 self.pd.selection_set(original)
                 self.pd.focus(original)
                 self.pd.see(original)
-                self._on_pending_do_select()
-            self.clear_builty_form(keep_do=True)
+            self.clear_builty_form()
             if original:
                 self.pd.selection_set(original)
                 self._on_pending_do_select()
