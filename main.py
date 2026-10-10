@@ -361,7 +361,7 @@ class App(tk.Tk):
         # Print preview pane, similar to the supplied target screenshot.
         preview_head = ttk.Frame(right)
         preview_head.pack(fill="x")
-        ttk.Button(preview_head, text="Print Preview", command=self.update_builty_preview).pack(side="left")
+        ttk.Button(preview_head, text="Print Preview", command=self.preview_selected_builty).pack(side="left")
         ttk.Button(preview_head, text="Print / Open PDF", command=self.reprint_builty).pack(side="left", padx=4)
         ttk.Button(preview_head, text="Export PDF", command=self.reprint_builty).pack(side="left")
         ttk.Label(right, text="Builty Print Preview", style="Head.TLabel").pack(anchor="w", pady=(10, 5))
@@ -537,15 +537,14 @@ class App(tk.Tk):
                 f'{r["remaining_qty"]:.3f}',
             ))
         for r in con.execute(
-            """SELECT b.id,b.builty_no,d.do_no,b.truck_no,b.date,b.qty,
+            """SELECT b.id,b.builty_no,d.do_no,d.customer_name,b.date,b.truck_no,b.qty,
                       b.freight_amount,b.billed,b.freight_paid
                FROM builtys b JOIN dos d ON d.id=b.do_id ORDER BY b.id DESC"""
         ):
             self.bt.insert("", "end", values=(
-                r["id"], r["builty_no"], r["do_no"], r["truck_no"], r["date"],
-                f'{r["qty"]:.3f}', f'{r["freight_amount"]:.2f}',
-                "Billed" if r["billed"] else "Pending",
-                "Paid" if r["freight_paid"] else "Due",
+                r["id"], r["builty_no"], r["do_no"] or "", r["customer_name"] or "",
+                r["date"], r["truck_no"], f'{r["qty"]:.3f}', f'{r["freight_amount"]:.2f}',
+                "Billed" if r["billed"] else ("Paid" if r["freight_paid"] else "Pending"),
             ))
         con.close()
 
@@ -598,9 +597,24 @@ class App(tk.Tk):
         self.refresh_builty()
         self.refresh_do()
 
+    def preview_selected_builty(self):
+        sel = self.bt.selection()
+        if not sel:
+            self.update_builty_preview()
+            messagebox.showinfo("Print Preview", "Saved Builty select karo. New Builty mate pehla DO select kari details bharo; save pachhi PDF preview/print thai shakshe.")
+            return
+        b_id = int(self.bt.item(sel[0])["values"][0])
+        con = db()
+        row = con.execute("SELECT * FROM builtys WHERE id=?", (b_id,)).fetchone()
+        do_row = con.execute("SELECT * FROM dos WHERE id=?", (row["do_id"],)).fetchone() if row else None
+        con.close()
+        if row and do_row:
+            self._print_builty_pdf(dict(row), dict(do_row))
+
     def reprint_builty(self):
         sel = self.bt.selection()
         if not sel:
+            messagebox.showwarning("Print Builty", "Saved Builty List mathi Builty select karo.")
             return
         b_id = int(self.bt.item(sel[0])["values"][0])
         con = db()
