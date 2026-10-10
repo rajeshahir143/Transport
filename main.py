@@ -259,22 +259,22 @@ class App(tk.Tk):
     def builty_tab(self, nb):
         f = ttk.Frame(nb, padding=8)
         nb.add(f, text="Builty Entry")
-        # SWASTIK-inspired split view: editable form on the left, print preview on the right.
-        split = ttk.Panedwindow(f, orient="horizontal")
-        split.pack(fill="both", expand=True)
-        left = ttk.Frame(split, padding=(2, 2, 8, 2))
-        right = ttk.Frame(split, padding=(6, 2, 2, 2))
-        split.add(left, weight=3)
-        split.add(right, weight=2)
+        # SWASTIK-style Builty data-entry screen; print preview remains available by button.
+        left = ttk.Frame(f, padding=(2, 2, 2, 2))
+        left.pack(fill="both", expand=True)
+        right = ttk.Frame(left, padding=(6, 2, 2, 2))
+        right.pack_forget()
 
         title = ttk.Frame(left)
         title.pack(fill="x")
         ttk.Label(title, text="Builty Entry", style="Title.TLabel").pack(side="left")
-        ttk.Button(title, text="Refresh", command=self.refresh_builty).pack(side="right")
-        ttk.Button(title, text="Next ▶", command=lambda: self.navigate_builty(1)).pack(side="right", padx=3)
-        ttk.Button(title, text="◀ Previous", command=lambda: self.navigate_builty(-1)).pack(side="right", padx=3)
-        ttk.Button(title, text="Edit Selected", command=self.load_selected_builty).pack(side="right", padx=3)
-        ttk.Button(title, text="＋ Add", command=self.open_new_builty_window).pack(side="right", padx=3)
+        ttk.Button(title, text="Cancel", command=self.clear_builty_form).pack(side="right", padx=2)
+        ttk.Button(title, text="Save", command=self.create_builty).pack(side="right", padx=2)
+        ttk.Button(title, text="Next ▶", command=lambda: self.navigate_builty(1)).pack(side="right", padx=2)
+        ttk.Button(title, text="◀ Previous", command=lambda: self.navigate_builty(-1)).pack(side="right", padx=2)
+        ttk.Button(title, text="Delete", command=self.delete_selected_builty).pack(side="right", padx=2)
+        ttk.Button(title, text="Edit", command=self.load_selected_builty).pack(side="right", padx=2)
+        ttk.Button(title, text="＋ Add", command=self.open_new_builty_window).pack(side="right", padx=2)
 
         form = ttk.LabelFrame(left, text="Builty Details", padding=8)
         form.pack(fill="x", pady=(6, 5))
@@ -282,7 +282,10 @@ class App(tk.Tk):
             "builty_no", "truck_no", "date", "qty", "do_no", "from_place", "to_place",
             "consignee", "driver_name", "mobile_no", "owner_name", "address",
             "challan_no", "quota_date", "freight_rate", "freight_amount", "ewaybill",
-            "pay_status", "cgst_rate", "sgst_rate", "remarks",
+            "pay_status", "cgst_rate", "sgst_rate", "remarks", "sale_party", "supply_party",
+            "center_name", "quota_select", "vehicle_no", "sale_rate", "sale_amount",
+            "despatch_weight", "receipt_weight", "freight_type", "commission",
+            "receipt_date", "driver_mobile", "voucher_remarks", "blt_print",
         )}
         self.b_vars["date"].set(__import__("datetime").date.today().strftime("%d/%m/%Y"))
         self.b_vars["pay_status"].set("To Be Billed")
@@ -308,10 +311,13 @@ class App(tk.Tk):
         transport.pack(fill="x", pady=4)
         fields = [
             ("Builty No.", "builty_no"), ("Date", "date"), ("DO No.", "do_no"),
-            ("Truck No.", "truck_no"), ("Driver Name", "driver_name"), ("Mobile No.", "mobile_no"),
+            ("Vehicle No.", "truck_no"), ("Driver Name", "driver_name"), ("Driver Mobile No.", "driver_mobile"),
             ("Truck Owner Name", "owner_name"), ("Address", "address"), ("Challan No.", "challan_no"),
-            ("Quota Date", "quota_date"), ("Actual Weight (TON)", "qty"),
+            ("Select Quota", "quota_select"), ("Despatch Weight", "despatch_weight"),
+            ("Receipt Weight", "receipt_weight"), ("Actual Weight (TON)", "qty"),
             ("Freight Rate", "freight_rate"), ("Freight (Rs.)", "freight_amount"),
+            ("Sale Rate", "sale_rate"), ("Sale Amount", "sale_amount"), ("Commission Rs.", "commission"),
+            ("Receipt Date", "receipt_date"),
         ]
         for i, (label, key) in enumerate(fields):
             r, col = divmod(i, 3)
@@ -332,8 +338,18 @@ class App(tk.Tk):
                 ttk.Combobox(other, textvariable=self.b_vars[key], values=("To Be Billed", "Paid", "To Pay"), width=15, state="readonly").grid(row=0, column=i*2+1, padx=4, pady=3)
             else:
                 ttk.Entry(other, textvariable=self.b_vars[key], width=10).grid(row=0, column=i*2+1, padx=4, pady=3)
-        ttk.Label(other, text="Shortage / Remarks").grid(row=1, column=0, padx=4, pady=3, sticky="w")
-        ttk.Entry(other, textvariable=self.b_vars["remarks"]).grid(row=1, column=1, columnspan=5, padx=4, pady=3, sticky="ew")
+        ttk.Label(other, text="Sale Party Name").grid(row=1, column=0, padx=4, pady=3, sticky="w")
+        ttk.Entry(other, textvariable=self.b_vars["sale_party"], width=25).grid(row=1, column=1, padx=4, pady=3, sticky="ew")
+        ttk.Label(other, text="Supply Party - Mill").grid(row=1, column=2, padx=4, pady=3, sticky="w")
+        ttk.Entry(other, textvariable=self.b_vars["supply_party"], width=25).grid(row=1, column=3, columnspan=3, padx=4, pady=3, sticky="ew")
+        ttk.Label(other, text="Center Name").grid(row=2, column=0, padx=4, pady=3, sticky="w")
+        ttk.Entry(other, textvariable=self.b_vars["center_name"], width=25).grid(row=2, column=1, padx=4, pady=3, sticky="ew")
+        ttk.Label(other, text="Freight Type").grid(row=2, column=2, padx=4, pady=3, sticky="w")
+        ttk.Combobox(other, textvariable=self.b_vars["freight_type"], values=("To Be Billed", "Paid", "To Pay"), width=20, state="readonly").grid(row=2, column=3, padx=4, pady=3, sticky="ew")
+        ttk.Label(other, text="Voucher Remarks").grid(row=3, column=0, padx=4, pady=3, sticky="w")
+        ttk.Entry(other, textvariable=self.b_vars["voucher_remarks"]).grid(row=3, column=1, columnspan=5, padx=4, pady=3, sticky="ew")
+        ttk.Label(other, text="Shortage / Remarks").grid(row=4, column=0, padx=4, pady=3, sticky="w")
+        ttk.Entry(other, textvariable=self.b_vars["remarks"]).grid(row=4, column=1, columnspan=5, padx=4, pady=3, sticky="ew")
 
         buttons = ttk.Frame(left)
         buttons.pack(fill="x", pady=5)
@@ -342,7 +358,8 @@ class App(tk.Tk):
         ttk.Button(buttons, text="◀ Previous", command=lambda: self.navigate_builty(-1)).pack(side="left", padx=2)
         ttk.Button(buttons, text="Next ▶", command=lambda: self.navigate_builty(1)).pack(side="left", padx=2)
         ttk.Button(buttons, text="Save / Create", command=self.create_builty).pack(side="left", padx=2)
-        ttk.Button(buttons, text="Print", command=self.reprint_builty).pack(side="left", padx=2)
+        ttk.Button(buttons, text="Print Preview", command=self.preview_selected_builty).pack(side="left", padx=2)
+        ttk.Button(buttons, text="Print / Open PDF", command=self.reprint_builty).pack(side="left", padx=2)
         ttk.Button(buttons, text="Cancel", command=self.clear_builty_form).pack(side="left", padx=2)
         self.manual_builty = tk.BooleanVar(value=False)
         ttk.Checkbutton(buttons, text="Manual details", variable=self.manual_builty,
