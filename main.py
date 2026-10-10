@@ -390,6 +390,55 @@ class App(tk.Tk):
         self.update_builty_preview()
         self.refresh_builty()
 
+    def delete_selected_builty(self):
+        """Delete a selected unbilled Builty and restore its quantity to the linked DO."""
+        sel = self.bt.selection() if hasattr(self, "bt") else ()
+        if not sel:
+            messagebox.showwarning("Delete Builty", "Select a saved Builty from the list first.")
+            return
+        values = self.bt.item(sel[0]).get("values", [])
+        if not values:
+            messagebox.showwarning("Delete Builty", "Selected Builty record could not be read.")
+            return
+        builty_id = int(values[0])
+        con = db()
+        try:
+            con.execute("BEGIN IMMEDIATE")
+            row = con.execute("SELECT * FROM builtys WHERE id=?", (builty_id,)).fetchone()
+            if not row:
+                con.rollback()
+                messagebox.showwarning("Delete Builty", "This Builty no longer exists.")
+                return
+            if row["billed"]:
+                con.rollback()
+                messagebox.showerror("Delete Builty", "This Builty is already linked to a Bill. Remove it from the Bill first.")
+                return
+            if row["freight_paid"]:
+                con.rollback()
+                messagebox.showerror("Delete Builty", "Freight payment is recorded for this Builty. Reverse the payment before deleting.")
+                return
+            if not messagebox.askyesno(
+                "Confirm Delete",
+                f'Delete Builty No. {row["builty_no"]}? The quantity will be returned to its Pending DO.'
+            ):
+                con.rollback()
+                return
+            con.execute(
+                "UPDATE dos SET remaining_qty=MIN(qty, COALESCE(remaining_qty,0)+?) WHERE id=?",
+                (float(row["qty"] or 0), row["do_id"])
+            )
+            con.execute("DELETE FROM builtys WHERE id=?", (builty_id,))
+            con.commit()
+        except Exception as exc:
+            con.rollback()
+            messagebox.showerror("Delete Builty", f"Could not delete Builty: {exc}")
+            return
+        finally:
+            con.close()
+        self.clear_builty_form()
+        self.refresh_builty()
+        messagebox.showinfo("Delete Builty", "Builty deleted and quantity restored to Pending DO.")
+
     def open_new_builty_window(self):
         # Separate DO-selection workspace styled after the supplied SWASTIK DO Entry screenshot.
         win = tk.Toplevel(self)
