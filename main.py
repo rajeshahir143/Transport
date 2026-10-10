@@ -277,7 +277,7 @@ class App(tk.Tk):
         self.b_vars = {k: tk.StringVar() for k in (
             "builty_no", "truck_no", "date", "qty", "do_no", "from_place", "to_place",
             "consignee", "driver_name", "mobile_no", "owner_name", "address",
-            "challan_no", "quota_date", "freight_rate", "freight_amount",
+            "challan_no", "quota_date", "freight_rate", "freight_amount", "ewaybill",
             "pay_status", "cgst_rate", "sgst_rate", "remarks",
         )}
         self.b_vars["date"].set(__import__("datetime").date.today().strftime("%d/%m/%Y"))
@@ -521,12 +521,12 @@ class App(tk.Tk):
                 t.delete(x)
         con = db()
         for r in con.execute(
-            "SELECT id,do_no,customer_name,material,remaining_qty,to_place "
+            "SELECT id,do_no,gmdc_do_no,customer_name,material,remaining_qty,to_place "
             "FROM dos WHERE remaining_qty>0.000001 ORDER BY id DESC"
         ):
             self.pd.insert("", "end", values=(
-                r["id"], r["do_no"], r["customer_name"], r["material"],
-                f'{r["remaining_qty"]:.3f}', r["to_place"] or "",
+                r["id"], r["do_no"] or r["gmdc_do_no"] or "", r["customer_name"], r["material"],
+                f'{r["remaining_qty"]:.3f}',
             ))
         for r in con.execute(
             """SELECT b.id,b.builty_no,d.do_no,b.truck_no,b.date,b.qty,
