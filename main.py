@@ -372,27 +372,107 @@ class App(tk.Tk):
         self.refresh_builty()
 
     def open_new_builty_window(self):
-        win = tk.Toplevel(self.root if hasattr(self, "root") else self)
-        win.title("New Builty — Select Pending DO")
-        win.geometry("900x500")
-        win.transient()
-        ttk.Label(win, text="Select Pending DO to create a new Builty", style="Title.TLabel").pack(anchor="w", padx=10, pady=8)
-        cols = ("id", "do_no", "party", "material", "remaining")
-        tree = ttk.Treeview(win, columns=cols, show="headings", height=14, selectmode="browse")
-        for col, title, width in zip(cols, ("ID", "DO No.", "Party Name", "Material", "Pending TON"), (55, 150, 250, 260, 100)):
+        # Separate DO-selection workspace styled after the supplied SWASTIK DO Entry screenshot.
+        win = tk.Toplevel(self)
+        win.title("Builty Entry — Select Pending DO")
+        win.geometry("960x650")
+        win.minsize(900, 580)
+        win.transient(self)
+
+        toolbar = ttk.Frame(win, padding=(10, 8))
+        toolbar.pack(fill="x")
+        ttk.Button(toolbar, text="Close", command=win.destroy).pack(side="left", padx=3)
+        ttk.Label(toolbar, text="Builty Entry — Pending DO Selection",
+                  style="Title.TLabel").pack(side="left", padx=12)
+        ttk.Button(toolbar, text="Refresh", command=lambda: load_pending()).pack(side="right")
+
+        body = ttk.Frame(win, padding=8)
+        body.pack(fill="both", expand=True)
+        left = ttk.LabelFrame(body, text="DO Details (Auto from PDF / Saved DO)", padding=8)
+        left.pack(side="left", fill="both", expand=True, padx=(0, 6))
+        right = ttk.LabelFrame(body, text="Pending DO / Quota List", padding=8)
+        right.pack(side="right", fill="both", expand=True, padx=(6, 0))
+
+        fields = [
+            ("DO No.", "do_no"), ("Date", "do_date"), ("GMDC DO No.", "gmdc_do_no"),
+            ("DO Party Name", "customer_name"), ("Customer No.", "customer_no"),
+            ("Customer GSTIN", "customer_gstin"), ("Regi. No.", "regi_no"),
+            ("Agent Name", "agent_name"), ("Item Name", "material"), ("Mines Name", "from_place"),
+            ("No. of Trucks", "no_trucks"), ("Truck Capacity", "truck_capacity"),
+            ("Total Tonne", "qty"), ("Rate Rs.", "unit_price"), ("Amount Rs.", "extended_price"),
+            ("Order Total", "order_total"), ("Schedule Date", "schedule_date"),
+        ]
+        vars_ = {}
+        grid = ttk.Frame(left)
+        grid.pack(fill="x")
+        for i, (label, key) in enumerate(fields):
+            rr, cc = divmod(i, 2)
+            cell = ttk.Frame(grid)
+            cell.grid(row=rr, column=cc, sticky="ew", padx=3, pady=3)
+            ttk.Label(cell, text=label, width=16).pack(anchor="w")
+            var = tk.StringVar()
+            vars_[key] = var
+            ent = ttk.Entry(cell, textvariable=var, width=25)
+            ent.pack(fill="x")
+            if key not in ("do_no", "customer_name", "customer_no", "customer_gstin",
+                           "regi_no", "agent_name", "no_trucks", "truck_capacity"):
+                ent.configure(state="readonly")
+        grid.columnconfigure(0, weight=1)
+        grid.columnconfigure(1, weight=1)
+
+        cols = ("id", "do_no", "party", "material", "pending")
+        tree = ttk.Treeview(right, columns=cols, show="headings", height=18, selectmode="browse")
+        for col, title, width in zip(cols, ("ID", "DO No.", "DO Party Name", "Item Name", "Pending TON"),
+                                      (42, 115, 160, 135, 80)):
             tree.heading(col, text=title)
             tree.column(col, width=width, anchor="w" if col in ("party", "material") else "center")
-        tree.pack(fill="both", expand=True, padx=10, pady=5)
-        for item in self.pd.get_children():
-            tree.insert("", "end", values=self.pd.item(item)["values"])
-        def choose(_event=None):
-            selected = tree.selection()
-            if not selected:
-                messagebox.showwarning("Select DO", "Pehla pending DO select karo.", parent=win)
+        tree.pack(fill="both", expand=True)
+
+        records = {}
+        def load_pending():
+            for item in tree.get_children():
+                tree.delete(item)
+            records.clear()
+            con = db()
+            rows = con.execute(
+                "SELECT * FROM dos WHERE remaining_qty>0.000001 ORDER BY id DESC"
+            ).fetchall()
+            con.close()
+            for row in rows:
+                data = dict(row)
+                records[int(row["id"])] = data
+                tree.insert("", "end", iid=str(row["id"]), values=(
+                    row["id"], row["do_no"] or row["gmdc_do_no"] or "",
+                    row["customer_name"] or "", row["material"] or "",
+                    f'{_f(row["remaining_qty"]):.3f}'
+                ))
+            if not rows:
+                for key, var in vars_.items():
+                    var.set("")
+        def select_do(_event=None):
+            sel = tree.selection()
+            if not sel:
                 return
-            vals = tree.item(selected[0])["values"]
+            row = records.get(int(sel[0]))
+            if not row:
+                return
+            mapping = {
+                "do_no": "do_no", "do_date": "do_date", "gmdc_do_no": "gmdc_do_no",
+                "customer_name": "customer_name", "customer_no": "customer_no",
+                "customer_gstin": "customer_gstin", "material": "material",
+                "from_place": "from_place", "qty": "remaining_qty",
+                "unit_price": "unit_price", "extended_price": "extended_price",
+                "order_total": "order_total", "schedule_date": "schedule_date",
+            }
+            for key, var in vars_.items():
+                source = mapping.get(key)
+                if source:
+                    var.set(str(row[source] if row[source] is not None else ""))
+                else:
+                    var.set("")
+            # Keep selected DO linked to the main Builty form.
             original = next((iid for iid in self.pd.get_children()
-                             if int(self.pd.item(iid)["values"][0]) == int(vals[0])), None)
+                             if int(self.pd.item(iid)["values"][0]) == int(row["id"])), None)
             if original:
                 self.pd.selection_set(original)
                 self.pd.focus(original)
@@ -401,12 +481,20 @@ class App(tk.Tk):
             if original:
                 self.pd.selection_set(original)
                 self._on_pending_do_select()
+            self.b_vars["qty"].set(f'{_f(row["remaining_qty"]):.3f}')
+        tree.bind("<<TreeviewSelect>>", select_do)
+        tree.bind("<Double-1>", lambda _e: use_selected())
+        buttons = ttk.Frame(win, padding=8)
+        buttons.pack(fill="x")
+        def use_selected():
+            if not tree.selection():
+                messagebox.showwarning("Select Pending DO", "Pehla Pending DO select karo.", parent=win)
+                return
+            select_do()
             win.destroy()
-        tree.bind("<Double-1>", choose)
-        foot = ttk.Frame(win)
-        foot.pack(fill="x", padx=10, pady=8)
-        ttk.Button(foot, text="Create Builty for Selected DO", command=choose).pack(side="left")
-        ttk.Button(foot, text="Cancel", command=win.destroy).pack(side="right")
+        ttk.Button(buttons, text="Create Builty for Selected DO", command=use_selected).pack(side="left")
+        ttk.Button(buttons, text="Cancel", command=win.destroy).pack(side="right")
+        load_pending()
 
     def toggle_manual_builty(self):
         manual = bool(self.manual_builty.get())
