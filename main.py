@@ -274,7 +274,7 @@ class App(tk.Tk):
         ttk.Button(title, text="Next ▶", command=lambda: self.navigate_builty(1)).pack(side="right", padx=3)
         ttk.Button(title, text="◀ Previous", command=lambda: self.navigate_builty(-1)).pack(side="right", padx=3)
         ttk.Button(title, text="Edit Selected", command=self.load_selected_builty).pack(side="right", padx=3)
-        ttk.Button(title, text="＋ New", command=self.clear_builty_form).pack(side="right", padx=3)
+        ttk.Button(title, text="＋ Add", command=self.open_new_builty_window).pack(side="right", padx=3)
 
         form = ttk.LabelFrame(left, text="Builty Details", padding=8)
         form.pack(fill="x", pady=(6, 5))
@@ -337,7 +337,7 @@ class App(tk.Tk):
 
         buttons = ttk.Frame(left)
         buttons.pack(fill="x", pady=5)
-        ttk.Button(buttons, text="＋ New", command=self.clear_builty_form).pack(side="left", padx=2)
+        ttk.Button(buttons, text="＋ Add", command=self.open_new_builty_window).pack(side="left", padx=2)
         ttk.Button(buttons, text="Edit Selected", command=self.load_selected_builty).pack(side="left", padx=2)
         ttk.Button(buttons, text="◀ Previous", command=lambda: self.navigate_builty(-1)).pack(side="left", padx=2)
         ttk.Button(buttons, text="Next ▶", command=lambda: self.navigate_builty(1)).pack(side="left", padx=2)
@@ -370,6 +370,44 @@ class App(tk.Tk):
         self.b_preview.pack(fill="both", expand=True)
         self.update_builty_preview()
         self.refresh_builty()
+
+    def open_new_builty_window(self):
+        win = tk.Toplevel(self.root if hasattr(self, "root") else self)
+        win.title("New Builty — Select Pending DO")
+        win.geometry("900x500")
+        win.transient()
+        ttk.Label(win, text="Select Pending DO to create a new Builty", style="Title.TLabel").pack(anchor="w", padx=10, pady=8)
+        cols = ("id", "do_no", "party", "material", "remaining")
+        tree = ttk.Treeview(win, columns=cols, show="headings", height=14, selectmode="browse")
+        for col, title, width in zip(cols, ("ID", "DO No.", "Party Name", "Material", "Pending TON"), (55, 150, 250, 260, 100)):
+            tree.heading(col, text=title)
+            tree.column(col, width=width, anchor="w" if col in ("party", "material") else "center")
+        tree.pack(fill="both", expand=True, padx=10, pady=5)
+        for item in self.pd.get_children():
+            tree.insert("", "end", values=self.pd.item(item)["values"])
+        def choose(_event=None):
+            selected = tree.selection()
+            if not selected:
+                messagebox.showwarning("Select DO", "Pehla pending DO select karo.", parent=win)
+                return
+            vals = tree.item(selected[0])["values"]
+            original = next((iid for iid in self.pd.get_children()
+                             if int(self.pd.item(iid)["values"][0]) == int(vals[0])), None)
+            if original:
+                self.pd.selection_set(original)
+                self.pd.focus(original)
+                self.pd.see(original)
+                self._on_pending_do_select()
+            self.clear_builty_form(keep_do=True)
+            if original:
+                self.pd.selection_set(original)
+                self._on_pending_do_select()
+            win.destroy()
+        tree.bind("<Double-1>", choose)
+        foot = ttk.Frame(win)
+        foot.pack(fill="x", padx=10, pady=8)
+        ttk.Button(foot, text="Create Builty for Selected DO", command=choose).pack(side="left")
+        ttk.Button(foot, text="Cancel", command=win.destroy).pack(side="right")
 
     def toggle_manual_builty(self):
         manual = bool(self.manual_builty.get())
