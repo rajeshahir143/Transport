@@ -259,11 +259,13 @@ class App(tk.Tk):
     def builty_tab(self, nb):
         f = ttk.Frame(nb, padding=8)
         nb.add(f, text="Builty Entry")
-        # SWASTIK-style Builty data-entry screen; print preview remains available by button.
-        left = ttk.Frame(f, padding=(2, 2, 2, 2))
-        left.pack(fill="both", expand=True)
-        right = ttk.Frame(left, padding=(6, 2, 2, 2))
-        right.pack_forget()
+        # Two-column layout: SWASTIK-style Builty form on the left, pending DOs on the right.
+        split = ttk.Panedwindow(f, orient="horizontal")
+        split.pack(fill="both", expand=True)
+        left = ttk.Frame(split, padding=(2, 2, 8, 2))
+        right = ttk.Frame(split, padding=(6, 2, 2, 2))
+        split.add(left, weight=3)
+        split.add(right, weight=2)
 
         title = ttk.Frame(left)
         title.pack(fill="x")
@@ -294,20 +296,20 @@ class App(tk.Tk):
         self.b_vars["cgst_rate"].set("0")
         self.b_vars["sgst_rate"].set("0")
 
-        pending_box = ttk.LabelFrame(left, text="Pending DO — select a DO to auto-fill details", padding=5)
-        pending_box.pack(fill="x", pady=4)
+        pending_box = ttk.LabelFrame(right, text="Pending DO — select a DO to auto-fill details", padding=5)
+        pending_box.pack(fill="both", expand=True, pady=4)
         cols = ("id", "do_no", "customer", "material", "remaining")
         self.pd = ttk.Treeview(pending_box, columns=cols, show="headings", height=4, selectmode="browse")
         for c, h, w in zip(cols, ("ID", "DO No", "Party Name", "Item Name", "Pending TON"), (42, 105, 185, 130, 90)):
             self.pd.heading(c, text=h)
             self.pd.column(c, width=w, anchor="w" if c in ("customer", "material") else "center")
-        self.pd.pack(fill="x")
+        self.pd.pack(fill="both", expand=True)
         self.pd.bind("<<TreeviewSelect>>", self._on_pending_do_select)
 
-        do_box = ttk.LabelFrame(left, text="DO Details (Auto from DO)", padding=7)
+        do_box = ttk.LabelFrame(right, text="DO Details (Auto from DO)", padding=7)
         do_box.pack(fill="x", pady=4)
         self.b_do_summary = tk.StringVar(value="Select a pending DO to auto-fill party, GSTIN, material and available quantity.")
-        ttk.Label(do_box, textvariable=self.b_do_summary, justify="left", wraplength=600).pack(anchor="w")
+        ttk.Label(do_box, textvariable=self.b_do_summary, justify="left", wraplength=450).pack(anchor="w")
 
         transport = ttk.LabelFrame(left, text="Transport Details", padding=7)
         transport.pack(fill="x", pady=4)
@@ -367,7 +369,7 @@ class App(tk.Tk):
         ttk.Checkbutton(buttons, text="Manual details", variable=self.manual_builty,
                         command=self.toggle_manual_builty).pack(side="right", padx=3)
 
-        ttk.Label(left, text="Saved Builty List", style="Head.TLabel").pack(anchor="w", pady=(4, 2))
+        ttk.Label(right, text="Saved Builty List", style="Head.TLabel").pack(anchor="w", pady=(6, 2))
         bcols = ("id", "no", "do", "party", "date", "truck", "qty", "freight", "status")
         self.bt = ttk.Treeview(left, columns=bcols, show="headings", height=6)
         for c, h, w in zip(bcols, ("ID", "Builty No.", "DO No.", "Party Name", "Date", "Truck No.", "Weight", "Amount", "Status"),
@@ -377,16 +379,15 @@ class App(tk.Tk):
         self.bt.pack(fill="both", expand=True)
         self.bt.bind("<Double-1>", lambda _e: self.reprint_builty())
 
-        # Print preview pane, similar to the supplied target screenshot.
-        preview_head = ttk.Frame(right)
-        preview_head.pack(fill="x")
-        ttk.Button(preview_head, text="Print Preview", command=self.preview_selected_builty).pack(side="left")
-        ttk.Button(preview_head, text="Print / Open PDF", command=self.reprint_builty).pack(side="left", padx=4)
-        ttk.Button(preview_head, text="Export PDF", command=self.reprint_builty).pack(side="left")
-        ttk.Label(right, text="Builty Print Preview", style="Head.TLabel").pack(anchor="w", pady=(10, 5))
-        self.b_preview = tk.Text(right, wrap="word", font=("Courier New", 10), background="white",
-                                 relief="solid", borderwidth=1, padx=14, pady=14)
-        self.b_preview.pack(fill="both", expand=True)
+        # Keep preview/print actions on the form; the right column is reserved for pending and saved DO/Builty lists.
+        preview_head = ttk.Frame(left)
+        preview_head.pack(fill="x", pady=(3, 0))
+        ttk.Button(preview_head, text="Print Preview", command=self.preview_selected_builty).pack(side="left", padx=2)
+        ttk.Button(preview_head, text="Print / Open PDF", command=self.reprint_builty).pack(side="left", padx=2)
+        ttk.Button(preview_head, text="Export PDF", command=self.reprint_builty).pack(side="left", padx=2)
+        self.b_preview = tk.Text(left, wrap="word", font=("Courier New", 9), height=4, background="white",
+                                 relief="solid", borderwidth=1, padx=8, pady=6)
+        self.b_preview.pack(fill="x", pady=(3, 0))
         self.update_builty_preview()
         self.refresh_builty()
 
