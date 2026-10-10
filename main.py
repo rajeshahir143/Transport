@@ -334,9 +334,15 @@ class App(tk.Tk):
         buttons = ttk.Frame(left)
         buttons.pack(fill="x", pady=5)
         ttk.Button(buttons, text="＋ New", command=self.clear_builty_form).pack(side="left", padx=2)
+        ttk.Button(buttons, text="Edit Selected", command=self.load_selected_builty).pack(side="left", padx=2)
+        ttk.Button(buttons, text="◀ Previous", command=lambda: self.navigate_builty(-1)).pack(side="left", padx=2)
+        ttk.Button(buttons, text="Next ▶", command=lambda: self.navigate_builty(1)).pack(side="left", padx=2)
         ttk.Button(buttons, text="Save / Create", command=self.create_builty).pack(side="left", padx=2)
         ttk.Button(buttons, text="Print", command=self.reprint_builty).pack(side="left", padx=2)
         ttk.Button(buttons, text="Cancel", command=self.clear_builty_form).pack(side="left", padx=2)
+        self.manual_builty = tk.BooleanVar(value=False)
+        ttk.Checkbutton(buttons, text="Manual details", variable=self.manual_builty,
+                        command=self.toggle_manual_builty).pack(side="right", padx=3)
 
         ttk.Label(left, text="Saved Builty List", style="Head.TLabel").pack(anchor="w", pady=(4, 2))
         bcols = ("id", "no", "do", "party", "date", "truck", "qty", "freight", "status")
@@ -360,6 +366,59 @@ class App(tk.Tk):
         self.b_preview.pack(fill="both", expand=True)
         self.update_builty_preview()
         self.refresh_builty()
+
+    def toggle_manual_builty(self):
+        manual = bool(self.manual_builty.get())
+        if manual:
+            self.b_do_summary.set("Manual mode: select a pending DO for stock/quantity control, then edit truck, driver, owner, challan, weight, freight and remarks below. DO-derived party/GSTIN/material details remain linked to the selected DO.")
+        else:
+            self.b_do_summary.set("Select a pending DO to auto-fill party, GSTIN, material, quota and registration details.")
+        self.update_builty_preview()
+
+    def navigate_builty(self, step):
+        rows = self.bt.get_children()
+        if not rows:
+            return
+        selected = self.bt.selection()
+        index = rows.index(selected[0]) if selected and selected[0] in rows else (0 if step > 0 else len(rows)-1)
+        index = max(0, min(len(rows)-1, index + step))
+        self.bt.selection_set(rows[index])
+        self.bt.focus(rows[index])
+        self.bt.see(rows[index])
+        self.load_selected_builty()
+
+    def load_selected_builty(self):
+        sel = self.bt.selection()
+        if not sel:
+            messagebox.showinfo("Edit Builty", "Select a saved Builty from Saved Builty List first.")
+            return
+        b_id = int(self.bt.item(sel[0])["values"][0])
+        con = db()
+        row = con.execute("SELECT * FROM builtys WHERE id=?", (b_id,)).fetchone()
+        do_row = con.execute("SELECT * FROM dos WHERE id=?", (row["do_id"],)).fetchone() if row else None
+        con.close()
+        if not row:
+            return
+        # Load existing record for review/print. Saving an existing record is intentionally
+        # not performed through Create, to avoid deducting the DO quantity twice.
+        self.clear_builty_form()
+        mapping = {
+            "builty_no": "builty_no", "truck_no": "truck_no", "date": "date",
+            "qty": "qty", "from_place": "from_place", "to_place": "to_place",
+            "consignee": "consignee", "driver_name": "driver_name", "remarks": "remarks",
+            "freight_rate": "freight_rate", "freight_amount": "freight_amount",
+        }
+        for target, source in mapping.items():
+            if source in row.keys() and row[source] is not None:
+                self.b_vars[target].set(str(row[source]))
+        if do_row:
+            self.b_vars["do_no"].set(do_row["do_no"] or "")
+            self.b_do_summary.set(
+                f"Party Name: {do_row['customer_name'] or ''}    GSTIN: {do_row['customer_gstin'] or ''}\\n"
+                f"Customer No.: {do_row['customer_no'] or ''}    Item: {do_row['material'] or ''}\\n"
+                f"Total TON: {do_row['qty'] or 0}    Pending TON: {do_row['remaining_qty'] or 0}"
+            )
+        self.update_builty_preview()
 
     def clear_builty_form(self):
         for key, var in self.b_vars.items():
