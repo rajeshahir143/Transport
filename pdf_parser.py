@@ -46,9 +46,24 @@ def parse_pdf(path):
     order_type = grab(r"\bOrder\s+Type\s+(.+?)(?=\s+(?:Bill\s+To|Ship\s+To|State|HSN|Schedule\s+Date)\b|$)")
     if "HOD-BHAV-Lignte" in flat and "Order E" in flat:
         order_type = "HOD-BHAV-Lignte Order E"
-    row = re.search(
-        r"\b1\s+(.+?)\s+([0-9]{2}-[A-Z]{3}-[0-9]{2})\s+([0-9,]+(?:\.[0-9]+)?)\s+([A-Z]+)\s+([0-9,]+(?:\.[0-9]+)?)\s+([0-9,]+(?:\.[0-9]+)?)",
-        text, re.I | re.S)
+    # Extract every schedule row from GMDC DO PDFs, not just the first row.
+    schedule_rows = []
+    row_pattern = re.compile(
+        r"(?m)^\s*(\d{1,3})\s+(.+?)\s+(\d{2}-[A-Z]{3}-\d{2})\s+"
+        r"([0-9,]+(?:\.[0-9]+)?)\s+([A-Z]+)\s+"
+        r"([0-9,]+(?:\.[0-9]+)?)\s+([0-9,]+(?:\.[0-9]+)?)\s*$",
+        re.I)
+    for match in row_pattern.finditer(text):
+        schedule_rows.append({
+            "sr_no": int(match.group(1)),
+            "item": _clean(match.group(2)),
+            "schedule_date": match.group(3).upper(),
+            "qty": _num(match.group(4)),
+            "uom": match.group(5).upper(),
+            "unit_price": _num(match.group(6)),
+            "extended_price": _num(match.group(7)),
+        })
+    schedule_rows.sort(key=lambda r: __import__("datetime").datetime.strptime(r["schedule_date"], "%d-%b-%y"))
     data = {
         "do_no": "",
         "gmdc_do_no": grab(r"\b(?:Order Number|Delivery Order)\s*[:#*]?\s*([0-9]{8,})"),
@@ -62,18 +77,20 @@ def parse_pdf(path):
         "state": grab(r"\bState\s*:\s*([A-Z ]+?)\s+HSN"),
         "hsn": grab(r"\bHSN Code\s*:\s*([0-9]+)"),
         "material": grab(r"\bDescription of Goods\s*:\s*(.+?)(?:\r?\n|$)"),
-        "schedule_date": "", "qty": 0.0, "uom": "TON",
+        "schedule_date": "", "schedule_rows": schedule_rows, "qty": 0.0, "uom": "TON",
         "unit_price": 0.0, "extended_price": 0.0,
         "transporter_code": grab(r"\bTransporter Code\s*:\s*([A-Z0-9]+)"),
         "transporter_name": grab(r"\bTransporter Name\s*:\s*(.+?)(?=\s+ORDER TOTAL\b|$)"),
         "order_total": _num(grab(r"\bORDER TOTAL\s+([0-9,]+(?:\.[0-9]+)?)")),
         "from_place": "BHAVNAGAR", "to_place": ""
     }
-    if row:
-        data.update(material=data["material"] or _clean(row.group(1)),
-                    schedule_date=row.group(2).upper(), qty=_num(row.group(3)),
-                    uom=row.group(4).upper(), unit_price=_num(row.group(5)),
-                    extended_price=_num(row.group(6)))
+    if schedule_rows:
+        data["schedule_date"] = schedule_rows[0]["schedule_date"]
+        data["qty"] = sum(r["qty"] for r in schedule_rows)
+        data["uom"] = schedule_rows[0]["uom"]
+        data["unit_price"] = schedule_rows[0]["unit_price"]
+        data["extended_price"] = sum(r["extended_price"] for r in schedule_rows)
+        data["material"] = data["material"] or schedule_rows[0]["item"]
     else:
         data["qty"] = _num(grab(r"\bTotal Qty\s*[: ]+([0-9,]+(?:\.[0-9]+)?)"))
     return data
