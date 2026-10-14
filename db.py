@@ -2,10 +2,38 @@
 SQLite file is stored next to the executable so data stays on the local computer.
 """
 import sqlite3
+import sys
+from datetime import date
 from pathlib import Path
 
-BASE = Path(__file__).resolve().parent
+# In a PyInstaller one-file EXE, __file__ points inside a temporary extraction
+# folder. Keep the live database beside the EXE so it persists between launches.
+BASE = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
 DB_PATH = BASE / "radhe_radhe.db"
+BACKUP_DIR = BASE / "Backup"
+TEMP_BACKUP_DIR = BASE / "temp"
+
+
+def backup_database():
+    """Create a dated daily backup and refresh a temporary latest backup."""
+    if not DB_PATH.exists():
+        return
+    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+    TEMP_BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+    daily = BACKUP_DIR / f"radhe_radhe_{date.today().isoformat()}.db"
+    latest = TEMP_BACKUP_DIR / "radhe_radhe_latest_backup.db"
+    source = sqlite3.connect(DB_PATH)
+    try:
+        for destination in (daily, latest):
+            target = sqlite3.connect(destination)
+            try:
+                source.backup(target)
+                target.commit()
+            finally:
+                target.close()
+    finally:
+        source.close()
+
 
 
 def db():
@@ -137,6 +165,7 @@ def init_db():
         con.execute("ALTER TABLE dos ADD COLUMN gmdc_do_no TEXT")
     con.commit()
     con.close()
+    backup_database()
 
 
 def lookup_rate(from_place, to_place, material):
