@@ -727,6 +727,7 @@ class App(tk.Tk):
         # Build quota choices from all schedule rows if the table exists; fall back
         # to the DO's single saved schedule date and remaining quantity.
         quota_options = []
+        con = db()
         try:
             schedule_cols = {r[1] for r in con.execute("PRAGMA table_info(do_schedules)")}
             if schedule_cols:
@@ -740,11 +741,11 @@ class App(tk.Tk):
                 ]
         except Exception:
             quota_options = []
+        finally:
+            con.close()
         if not quota_options and row["schedule_date"]:
             quota_options = [f"{row['schedule_date']} — {pending:.3f} TON"]
         # Update the visible readonly quota dropdown when the selected DO changes.
-        for child in self.winfo_children():
-            pass
         if hasattr(self, "_quota_combo"):
             self._quota_combo.configure(values=quota_options)
         if quota_options:
