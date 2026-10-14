@@ -153,9 +153,12 @@ class App(tk.Tk):
         do_id = int(self.dot.item(sel[0])["values"][0])
         con = db()
         row = con.execute("SELECT * FROM dos WHERE id=?", (do_id,)).fetchone()
+        schedules = con.execute("SELECT schedule_date,qty,uom,unit_price,extended_price FROM do_schedules WHERE do_id=? ORDER BY schedule_date", (do_id,)).fetchall()
         con.close()
         if row:
-            self._do_form(data=dict(row), existing_id=do_id)
+            payload = dict(row)
+            payload["schedule_rows"] = [dict(s) for s in schedules]
+            self._do_form(data=payload, existing_id=do_id)
 
     def delete_do(self):
         sel = self.dot.selection()
@@ -459,6 +462,12 @@ class App(tk.Tk):
             ):
                 con.rollback()
                 return
+            quota_date = row["quota_date"] if "quota_date" in row.keys() else ""
+            if quota_date:
+                con.execute(
+                    "UPDATE do_schedules SET remaining_qty=MIN(qty, COALESCE(remaining_qty,0)+?) WHERE do_id=? AND schedule_date=?",
+                    (float(row["qty"] or 0), row["do_id"], quota_date)
+                )
             con.execute(
                 "UPDATE dos SET remaining_qty=MIN(qty, COALESCE(remaining_qty,0)+?) WHERE id=?",
                 (float(row["qty"] or 0), row["do_id"])
@@ -887,6 +896,20 @@ class App(tk.Tk):
                     "despatch_weight", "receipt_weight", "commission", "driver_payable"
                 ) else self.b_vars[k].get().strip() for k in extra_keys) + (b_id,),
             )
+            quota_date = self.b_vars["quota_date"].get().strip()
+            if quota_date:
+                schedule = con.execute(
+                    "SELECT remaining_qty FROM do_schedules WHERE do_id=? AND schedule_date=?",
+                    (do_id, quota_date),
+                ).fetchone()
+                if schedule and qty > _f(schedule["remaining_qty"]) + 1e-9:
+                    con.rollback()
+                    con.close()
+                    messagebox.showerror("Quota Qty", f"Selected quota has only {_f(schedule['remaining_qty']):.3f} TON remaining.")
+                    return
+                if schedule:
+                    con.execute("UPDATE do_schedules SET remaining_qty=remaining_qty-? WHERE do_id=? AND schedule_date=?",
+                                (qty, do_id, quota_date))
             con.execute("UPDATE dos SET remaining_qty=remaining_qty-? WHERE id=?", (qty, do_id))
             con.commit()
         except Exception as e:
