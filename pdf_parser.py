@@ -52,7 +52,7 @@ def parse_pdf(path):
         r"(?m)^\s*(\d{1,3})\s+(.+?)\s+(\d{2}-[A-Z]{3}-\d{2})\s+"
         r"([0-9,]+(?:\.[0-9]+)?)\s+([A-Z]+)\s+"
         r"([0-9,]+(?:\.[0-9]+)?)\s+([0-9,]+(?:\.[0-9]+)?)\s*$",
-        re.I | re.S)
+        re.I)
     for match in row_pattern.finditer(text):
         schedule_rows.append({
             "sr_no": int(match.group(1)),
