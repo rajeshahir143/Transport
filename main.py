@@ -289,10 +289,11 @@ class App(tk.Tk):
             "pay_status", "cgst_rate", "sgst_rate", "remarks", "sale_party", "supply_party",
             "center_name", "quota_select", "vehicle_no", "sale_rate", "sale_amount",
             "despatch_weight", "receipt_weight", "freight_type", "commission",
-            "receipt_date", "driver_mobile", "voucher_remarks", "blt_print",
+            "receipt_date", "driver_mobile", "voucher_remarks", "blt_print", "driver_payable",
         )}
         self.b_vars["date"].set(__import__("datetime").date.today().strftime("%d/%m/%Y"))
         self.b_vars["pay_status"].set("To Be Billed")
+        self.b_vars["commission"].set("0")
         self.b_vars["cgst_rate"].set("0")
         self.b_vars["sgst_rate"].set("0")
 
@@ -321,14 +322,19 @@ class App(tk.Tk):
             ("Receipt Weight", "receipt_weight"), ("Actual Weight (TON)", "qty"),
             ("Freight Rate", "freight_rate"), ("Freight (Rs.)", "freight_amount"),
             ("Sale Rate", "sale_rate"), ("Sale Amount", "sale_amount"), ("Commission Rs.", "commission"),
-            ("Receipt Date", "receipt_date"),
+            ("Receipt Date", "receipt_date"), ("Driver Payable (Rs.)", "driver_payable"),
         ]
         for i, (label, key) in enumerate(fields):
             r, col = divmod(i, 3)
             ttk.Label(transport, text=label).grid(row=r, column=col*2, padx=4, pady=3, sticky="w")
-            ent = ttk.Entry(transport, textvariable=self.b_vars[key], width=17)
+            if key == "quota_select":
+                ent = ttk.Combobox(transport, textvariable=self.b_vars[key], width=15, state="readonly")
+                self._quota_combo = ent
+                ent.bind("<<ComboboxSelected>>", self._on_quota_selected)
+            else:
+                ent = ttk.Entry(transport, textvariable=self.b_vars[key], width=17)
             ent.grid(row=r, column=col*2+1, padx=4, pady=3, sticky="ew")
-            if key in ("qty", "freight_rate"):
+            if key in ("qty", "freight_rate", "commission"):
                 self.b_vars[key].trace_add("write", lambda *_: self._recalc_freight())
             self.b_vars[key].trace_add("write", lambda *_: self.update_builty_preview())
         for col in range(6):
@@ -606,6 +612,7 @@ class App(tk.Tk):
             "consignee": "consignee", "driver_name": "driver_name", "remarks": "remarks",
             "freight_rate": "freight_rate", "freight_amount": "freight_amount",
             "mobile_no": "mobile_no", "owner_name": "owner_name", "address": "address",
+            "driver_payable": "driver_payable",
             "challan_no": "challan_no", "quota_date": "quota_date", "pay_status": "pay_status",
             "cgst_rate": "cgst_rate", "sgst_rate": "sgst_rate", "sale_party": "sale_party",
             "supply_party": "supply_party", "center_name": "center_name",
@@ -689,6 +696,21 @@ class App(tk.Tk):
         self.b_preview.insert("1.0", "\n".join(lines))
         self.b_preview.configure(state="disabled")
 
+    def _on_quota_selected(self, _event=None):
+        """Load quota/date and available tonnes for the selected DO schedule."""
+        do_id = getattr(self, "_selected_quota_do_id", None)
+        quota = self.b_vars["quota_select"].get().strip()
+        if not do_id or not quota:
+            return
+        try:
+            quota_date, quota_qty = quota.rsplit(" — ", 1)
+            available = _f(quota_qty.replace(" TON", ""))
+        except ValueError:
+            return
+        self.b_vars["quota_date"].set(quota_date.strip())
+        self.b_vars["qty"].set(f"{available:.3f}")
+        self._recalc_freight()
+
     def _on_pending_do_select(self, _e=None):
         sel = self.pd.selection()
         if not sel:
@@ -701,6 +723,36 @@ class App(tk.Tk):
         if not row:
             return
         pending = _f(row["remaining_qty"])
+        self._selected_quota_do_id = do_id
+        # Build quota choices from all schedule rows if the table exists; fall back
+        # to the DO's single saved schedule date and remaining quantity.
+        quota_options = []
+        try:
+            schedule_cols = {r[1] for r in con.execute("PRAGMA table_info(do_schedules)")}
+            if schedule_cols:
+                schedule_rows = con.execute(
+                    "SELECT schedule_date, qty, COALESCE(remaining_qty, qty) AS remaining_qty "
+                    "FROM do_schedules WHERE do_id=? ORDER BY schedule_date", (do_id,)
+                ).fetchall()
+                quota_options = [
+                    f"{r['schedule_date']} — {_f(r['remaining_qty']):.3f} TON"
+                    for r in schedule_rows if _f(r['remaining_qty']) > 0.000001
+                ]
+        except Exception:
+            quota_options = []
+        if not quota_options and row["schedule_date"]:
+            quota_options = [f"{row['schedule_date']} — {pending:.3f} TON"]
+        # Update the visible readonly quota dropdown when the selected DO changes.
+        for child in self.winfo_children():
+            pass
+        if hasattr(self, "_quota_combo"):
+            self._quota_combo.configure(values=quota_options)
+        if quota_options:
+            self.b_vars["quota_select"].set(quota_options[0])
+            self._on_quota_selected()
+        else:
+            self.b_vars["quota_select"].set("")
+            self.b_vars["quota_date"].set(row["schedule_date"] or "")
         self.b_vars["do_no"].set(row["do_no"] or "")
         self.b_vars["from_place"].set(row["from_place"] or "BHAVNAGAR")
         self.b_vars["to_place"].set(row["to_place"] or "")
@@ -723,7 +775,12 @@ class App(tk.Tk):
     def _recalc_freight(self):
         q = _f(self.b_vars["qty"].get())
         r = _f(self.b_vars["freight_rate"].get())
-        self.b_vars["freight_amount"].set(f"{q * r:.2f}")
+        gross = q * r
+        commission = _f(self.b_vars["commission"].get())
+        payable = gross - commission
+        self.b_vars["freight_amount"].set(f"{gross:.2f}")
+        if "driver_payable" in self.b_vars:
+            self.b_vars["driver_payable"].set(f"{payable:.2f}")
 
     def refresh_builty(self):
         if not hasattr(self, "pd"):
@@ -787,7 +844,7 @@ class App(tk.Tk):
             b_id = cur.lastrowid
             # Persist every extra field visible in the Builty form, not just print essentials.
             extra_keys = (
-                "mobile_no", "owner_name", "address", "challan_no", "quota_date",
+                "mobile_no", "owner_name", "address", "challan_no", "quota_date", "driver_payable",
                 "pay_status", "cgst_rate", "sgst_rate", "sale_party", "supply_party",
                 "center_name", "quota_select", "vehicle_no", "sale_rate", "sale_amount",
                 "despatch_weight", "receipt_weight", "freight_type", "commission",
@@ -797,7 +854,7 @@ class App(tk.Tk):
                 "UPDATE builtys SET " + ",".join(f"{key}=?" for key in extra_keys) + " WHERE id=?",
                 tuple(_f(self.b_vars[k].get()) if k in (
                     "cgst_rate", "sgst_rate", "sale_rate", "sale_amount",
-                    "despatch_weight", "receipt_weight", "commission"
+                    "despatch_weight", "receipt_weight", "commission", "driver_payable"
                 ) else self.b_vars[k].get().strip() for k in extra_keys) + (b_id,),
             )
             con.execute("UPDATE dos SET remaining_qty=remaining_qty-? WHERE id=?", (qty, do_id))
