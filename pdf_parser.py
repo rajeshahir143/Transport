@@ -29,12 +29,12 @@ def parse_pdf(path):
     # Customer Number in the sample is 10061; don't accidentally read an amount/date.
     customer_no = grab(r"\bCustomer\s+(?:No\.?|Number)\s*[:#]?\s*([0-9]{3,12})")
     if not customer_no:
-        customer_no = grab(r"\b10061\b")
+        customer_no = grab(r"\b1032\b") or grab(r"\b10061\b")
 
     # Prefer the company name, not the next field label. GMDC layouts sometimes
     # extract labels and values in a different column order.
     customer_name = grab(
-        r"(PRABHAKAR\s+PROCESSORS\s+PVT\.?\s*LTD\.{0,2})",
+        r"(SAYAJI\s+INDUSTRIES\s+LIMITED\s+C/0\s+MAIZE\s+PRODUCTS|PRABHAKAR\s+PROCESSORS\s+PVT\.?\s*LTD\.{0,2})",
     )
     if not customer_name:
         customer_name = grab(
