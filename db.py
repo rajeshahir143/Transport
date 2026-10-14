@@ -76,6 +76,19 @@ def init_db():
             created_at TEXT DEFAULT (datetime('now','localtime'))
         );
 
+        CREATE TABLE IF NOT EXISTS do_schedules(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            do_id INTEGER NOT NULL,
+            schedule_date TEXT NOT NULL,
+            qty REAL NOT NULL DEFAULT 0,
+            remaining_qty REAL NOT NULL DEFAULT 0,
+            uom TEXT DEFAULT 'TON',
+            unit_price REAL DEFAULT 0,
+            extended_price REAL DEFAULT 0,
+            UNIQUE(do_id, schedule_date),
+            FOREIGN KEY(do_id) REFERENCES dos(id) ON DELETE CASCADE
+        );
+
         CREATE TABLE IF NOT EXISTS builtys(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             builty_no TEXT UNIQUE,
