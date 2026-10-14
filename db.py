@@ -159,6 +159,23 @@ def init_db():
         );
         """
     )
+    # Preserve the full Builty form across app restarts and when editing old records.
+    builty_columns = {
+        "mobile_no": "TEXT", "owner_name": "TEXT", "address": "TEXT",
+        "challan_no": "TEXT", "quota_date": "TEXT", "pay_status": "TEXT",
+        "cgst_rate": "REAL DEFAULT 0", "sgst_rate": "REAL DEFAULT 0",
+        "sale_party": "TEXT", "supply_party": "TEXT", "center_name": "TEXT",
+        "quota_select": "TEXT", "vehicle_no": "TEXT", "sale_rate": "REAL DEFAULT 0",
+        "sale_amount": "REAL DEFAULT 0", "despatch_weight": "REAL DEFAULT 0",
+        "receipt_weight": "REAL DEFAULT 0", "freight_type": "TEXT",
+        "commission": "REAL DEFAULT 0", "receipt_date": "TEXT",
+        "driver_mobile": "TEXT", "voucher_remarks": "TEXT", "blt_print": "TEXT",
+    }
+    existing_builty = {row[1] for row in con.execute("PRAGMA table_info(builtys)")}
+    for column, sql_type in builty_columns.items():
+        if column not in existing_builty:
+            con.execute(f"ALTER TABLE builtys ADD COLUMN {column} {sql_type}")
+
     # Backward-compatible migration for databases created by older builds.
     existing = {row[1] for row in con.execute("PRAGMA table_info(dos)")}
     if "gmdc_do_no" not in existing:
