@@ -605,6 +605,16 @@ class App(tk.Tk):
             "qty": "qty", "from_place": "from_place", "to_place": "to_place",
             "consignee": "consignee", "driver_name": "driver_name", "remarks": "remarks",
             "freight_rate": "freight_rate", "freight_amount": "freight_amount",
+            "mobile_no": "mobile_no", "owner_name": "owner_name", "address": "address",
+            "challan_no": "challan_no", "quota_date": "quota_date", "pay_status": "pay_status",
+            "cgst_rate": "cgst_rate", "sgst_rate": "sgst_rate", "sale_party": "sale_party",
+            "supply_party": "supply_party", "center_name": "center_name",
+            "quota_select": "quota_select", "vehicle_no": "vehicle_no", "sale_rate": "sale_rate",
+            "sale_amount": "sale_amount", "despatch_weight": "despatch_weight",
+            "receipt_weight": "receipt_weight", "freight_type": "freight_type",
+            "commission": "commission", "receipt_date": "receipt_date",
+            "driver_mobile": "driver_mobile", "voucher_remarks": "voucher_remarks",
+            "blt_print": "blt_print",
         }
         for target, source in mapping.items():
             if source in row.keys() and row[source] is not None:
@@ -775,6 +785,21 @@ class App(tk.Tk):
                  self.b_vars["remarks"].get().strip()),
             )
             b_id = cur.lastrowid
+            # Persist every extra field visible in the Builty form, not just print essentials.
+            extra_keys = (
+                "mobile_no", "owner_name", "address", "challan_no", "quota_date",
+                "pay_status", "cgst_rate", "sgst_rate", "sale_party", "supply_party",
+                "center_name", "quota_select", "vehicle_no", "sale_rate", "sale_amount",
+                "despatch_weight", "receipt_weight", "freight_type", "commission",
+                "receipt_date", "driver_mobile", "voucher_remarks", "blt_print",
+            )
+            con.execute(
+                "UPDATE builtys SET " + ",".join(f"{key}=?" for key in extra_keys) + " WHERE id=?",
+                tuple(_f(self.b_vars[k].get()) if k in (
+                    "cgst_rate", "sgst_rate", "sale_rate", "sale_amount",
+                    "despatch_weight", "receipt_weight", "commission"
+                ) else self.b_vars[k].get().strip() for k in extra_keys) + (b_id,),
+            )
             con.execute("UPDATE dos SET remaining_qty=remaining_qty-? WHERE id=?", (qty, do_id))
             con.commit()
         except Exception as e:
