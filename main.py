@@ -199,15 +199,24 @@ class App(tk.Tk):
         frm.pack(fill="both", expand=True)
         for i, (k, lab) in enumerate(fields):
             ttk.Label(frm, text=lab).grid(row=i // 2, column=(i % 2) * 2, sticky="w", padx=5, pady=3)
-            v = tk.StringVar(value=str(data.get(k) or ""))
+            value = data.get(k) or ""
+            if k == "schedule_date" and data.get("schedule_rows"):
+                value = data["schedule_rows"][0].get("schedule_date", value)
+            v = tk.StringVar(value=str(value))
             vars_[k] = v
-            ttk.Entry(frm, textvariable=v, width=32).grid(row=i // 2, column=(i % 2) * 2 + 1, padx=5, pady=3)
+            if k == "schedule_date":
+                dates = [r.get("schedule_date", "") for r in (data.get("schedule_rows") or []) if r.get("schedule_date")]
+                widget = ttk.Combobox(frm, textvariable=v, values=dates, width=30, state="readonly" if dates else "normal")
+            else:
+                widget = ttk.Entry(frm, textvariable=v, width=32)
+            widget.grid(row=i // 2, column=(i % 2) * 2 + 1, padx=5, pady=3)
 
         def save():
             vals = {k: vars_[k].get().strip() for k, _ in fields}
             qty = _f(vals["qty"])
             try:
                 con = db()
+                schedule_rows = data.get("schedule_rows") or []
                 if existing_id:
                     # keep remaining_qty consistent: adjust by delta if qty changed
                     prev = con.execute("SELECT qty, remaining_qty FROM dos WHERE id=?",
@@ -242,6 +251,26 @@ class App(tk.Tk):
                          vals["transporter_code"], vals["transporter_name"], _f(vals["order_total"]),
                          vals["from_place"], vals["to_place"], qty, source_pdf or ""),
                     )
+                if schedule_rows:
+                    if existing_id:
+                        con.execute("DELETE FROM do_schedules WHERE do_id=?", (existing_id,))
+                        schedule_do_id = existing_id
+                    else:
+                        schedule_do_id = con.execute("SELECT id FROM dos WHERE gmdc_do_no=? ORDER BY id DESC LIMIT 1",
+                                                     (vals["gmdc_do_no"],)).fetchone()["id"]
+                    for item in schedule_rows:
+                        date_text = str(item.get("schedule_date") or "").strip()
+                        if not date_text:
+                            continue
+                        qty_row = _f(item.get("qty"))
+                        con.execute(
+                            """INSERT INTO do_schedules(do_id,schedule_date,qty,remaining_qty,uom,unit_price,extended_price)
+                               VALUES(?,?,?,?,?,?,?) ON CONFLICT(do_id,schedule_date) DO UPDATE SET
+                               qty=excluded.qty, remaining_qty=MIN(do_schedules.remaining_qty,excluded.qty),
+                               uom=excluded.uom, unit_price=excluded.unit_price, extended_price=excluded.extended_price""",
+                            (schedule_do_id, date_text, qty_row, qty_row, item.get("uom") or vals["uom"],
+                             _f(item.get("unit_price")), _f(item.get("extended_price"))),
+                        )
                 con.commit()
                 con.close()
                 self.refresh_do()
