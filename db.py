@@ -168,7 +168,7 @@ def init_db():
         "quota_select": "TEXT", "vehicle_no": "TEXT", "sale_rate": "REAL DEFAULT 0",
         "sale_amount": "REAL DEFAULT 0", "despatch_weight": "REAL DEFAULT 0",
         "receipt_weight": "REAL DEFAULT 0", "freight_type": "TEXT",
-        "commission": "REAL DEFAULT 0", "receipt_date": "TEXT",
+        "commission": "REAL DEFAULT 0", "driver_payable": "REAL DEFAULT 0", "receipt_date": "TEXT",
         "driver_mobile": "TEXT", "voucher_remarks": "TEXT", "blt_print": "TEXT",
     }
     existing_builty = {row[1] for row in con.execute("PRAGMA table_info(builtys)")}
