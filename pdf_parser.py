@@ -96,7 +96,7 @@ def parse_pdf(path):
         "transporter_code": grab(r"\bTransporter Code\s*:\s*([A-Z0-9]+)"),
         "transporter_name": transporter_name,
         "order_total": _num(grab(r"\bORDER TOTAL\s+([0-9,]+(?:\.[0-9]+)?)")),
-        "from_place": "BHAVNAGAR", "to_place": to_place, "to_ma_dist": to_ma_dist
+        "from_place": "BHAVNAGAR", "to_place": (to_ma_dist or to_place), "to_ma_dist": to_ma_dist
     }
     if schedule_rows:
         data["schedule_date"] = schedule_rows[0]["schedule_date"]
