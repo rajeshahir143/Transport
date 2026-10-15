@@ -36,7 +36,8 @@ def _safe(value, limit=500):
     text = str(value or "").replace("\r", " ").replace("\n", " ")
     return escape(text[:limit])
 
-\ndef _header(firm_name, firm_sub, copy_label):
+
+def _header(firm_name, firm_sub, copy_label):
     data = [[
         Paragraph(firm_name, TITLE),
     ], [
