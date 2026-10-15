@@ -7,6 +7,7 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm
+from xml.sax.saxutils import escape
 from reportlab.platypus import (
     SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer,
 )
@@ -71,9 +72,9 @@ def _kv_row(pairs, col_widths):
 
 
 def _party_block(title, lines):
-    body = "<br/>".join([f"<b>{title}</b>"] + [str(x) for x in lines if x])
+    body = "<br/>".join([f"<b>{_safe(title)}</b>"] + [_safe(x, 240) for x in lines if x])
     p = Paragraph(body, CELL)
-    tbl = Table([[p]], colWidths=[90 * mm], rowHeights=[32 * mm])
+    tbl = Table([[p]], colWidths=[90 * mm], splitByRow=1)
     tbl.setStyle(TableStyle([
         ("BOX", (0, 0), (-1, -1), 0.5, LINE),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
