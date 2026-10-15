@@ -65,11 +65,12 @@ def parse_pdf(path):
         })
     schedule_rows.sort(key=lambda r: __import__("datetime").datetime.strptime(r["schedule_date"], "%d-%b-%y"))
     # Extract "TO MA DIST" separately from the ordinary "TO" destination.
+    # The PDF's "TO MA DIST" value belongs in the existing DO "To" field.
     to_ma_dist = grab(
-        r"\bTO\s+MA\s+DIST\.?\s*[:\-]?\s*(.+?)(?=\s+(?:TO\s*:|TO\s+[A-Z][A-Z .&()'-]{1,40}\b|FROM\b|TRANSPORTER\b|ORDER\s+TOTAL\b|CUSTOMER\b)|$)"
+        r"\bTO\s+MA\s+DIST\.?\s*[:\-]?\s*([A-Z][A-Z .&()'-]{1,50}?)(?=\s+(?:TO\b|FROM\b|TRANSPORTER\b|ORDER\s+TOTAL\b|CUSTOMER\b|SCHEDULE\s+DATE\b|HSN\b)|$)"
     ).strip(" .-")
-    to_place = grab(
-        r"\bTO\s*:\s*([A-Z][A-Z .&()'-]{1,50}?)(?=\s+(?:FROM\b|TRANSPORTER\b|ORDER\s+TOTAL\b|CUSTOMER\b|$))"
+    to_place = to_ma_dist or grab(
+        r"\bTO\s*:\s*([A-Z][A-Z .&()'-]{1,50}?)(?=\s+(?:FROM\b|TRANSPORTER\b|ORDER\s+TOTAL\b|CUSTOMER\b|SCHEDULE\s+DATE\b|HSN\b)|$)"
     ).strip(" .-")
     # Keep the transporter name clean and consistent for Builty Sale Party.
     transporter_name = grab(r"\bMANSI\s+COAL\s+CARRI(?:ER|ER)\b")
