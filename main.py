@@ -241,18 +241,25 @@ class App(tk.Tk):
                          vals["from_place"], vals["to_place"], vals["to_place"], new_remaining, existing_id),
                     )
                 else:
+                    do_columns = (
+                        "do_no,gmdc_do_no,do_date,customer_no,customer_name,customer_gstin,"
+                        "order_type,bill_to,ship_to,state,hsn,material,schedule_date,qty,uom,"
+                        "unit_price,extended_price,transporter_code,transporter_name,order_total,"
+                        "from_place,to_place,to_ma_dist,remaining_qty,source_pdf"
+                    )
+                    do_values = (
+                        vals["do_no"], vals["gmdc_do_no"], vals["do_date"], vals["customer_no"], vals["customer_name"],
+                        vals["customer_gstin"], vals["order_type"], vals["bill_to"], vals["ship_to"],
+                        vals["state"], vals["hsn"], vals["material"], vals["schedule_date"],
+                        qty, vals["uom"], _f(vals["unit_price"]), _f(vals["extended_price"]),
+                        vals["transporter_code"], vals["transporter_name"], _f(vals["order_total"]),
+                        vals["from_place"], vals["to_place"], vals["to_place"], qty, source_pdf or "",
+                    )
+                    # Build placeholders from the exact value count so the SQL cannot drift out of sync.
+                    placeholders = ",".join("?" for _ in do_values)
                     con.execute(
-                        """INSERT INTO dos(do_no,gmdc_do_no,do_date,customer_no,customer_name,customer_gstin,
-                           order_type,bill_to,ship_to,state,hsn,material,schedule_date,qty,uom,
-                           unit_price,extended_price,transporter_code,transporter_name,order_total,
-                           from_place,to_place,to_ma_dist,remaining_qty,source_pdf)
-                           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                        (vals["do_no"], vals["gmdc_do_no"], vals["do_date"], vals["customer_no"], vals["customer_name"],
-                         vals["customer_gstin"], vals["order_type"], vals["bill_to"], vals["ship_to"],
-                         vals["state"], vals["hsn"], vals["material"], vals["schedule_date"],
-                         qty, vals["uom"], _f(vals["unit_price"]), _f(vals["extended_price"]),
-                         vals["transporter_code"], vals["transporter_name"], _f(vals["order_total"]),
-                         vals["from_place"], vals["to_place"], vals["to_place"], qty, source_pdf or ""),
+                        f"INSERT INTO dos({do_columns}) VALUES({placeholders})",
+                        do_values,
                     )
                 if schedule_rows:
                     if existing_id:
