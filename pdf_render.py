@@ -85,125 +85,146 @@ def _party_block(title, lines):
 
 
 def generate_builty_pdf(out_path, firm, builty, do_row, copy_label="CONSIGNOR COPY"):
-    """firm: dict(name, address, gstin, phone)
-       builty: dict row from builtys table (+freight columns)
-       do_row: dict row from dos table
-    """
+    """Generate a compact, SWASTIK-style Lorry Receipt matching the supplied sample."""
     doc = SimpleDocTemplate(
         str(out_path), pagesize=A4,
-        leftMargin=15 * mm, rightMargin=15 * mm,
-        topMargin=12 * mm, bottomMargin=12 * mm,
+        leftMargin=4 * mm, rightMargin=4 * mm,
+        topMargin=3 * mm, bottomMargin=3 * mm,
     )
+    small = ParagraphStyle("lrsmall", parent=CELL, fontSize=8, leading=10)
+    bold = ParagraphStyle("lrbold", parent=small, fontName="Helvetica-Bold")
+    title = ParagraphStyle("lrtitle", parent=STYLES["Title"], fontName="Helvetica-Bold",
+                           fontSize=19, leading=21, alignment=1, textColor=colors.black, spaceAfter=0)
+    subtitle = ParagraphStyle("lrsub", parent=STYLES["Normal"], fontName="Helvetica-Bold",
+                              fontSize=12, leading=14, alignment=1, textColor=colors.black)
+    center = ParagraphStyle("lrcenter", parent=small, alignment=1)
+    right = ParagraphStyle("lrright", parent=small, alignment=2)
     story = []
-    story.append(_header(
-        firm.get("name", "RADHE RADHE DEVELOPER"),
-        f"{firm.get('address','')} &nbsp;|&nbsp; GSTIN: {firm.get('gstin','')} &nbsp;|&nbsp; Phone: {firm.get('phone','')}",
-        copy_label,
-    ))
-    story.append(Spacer(1, 4))
 
-    # LR / Builty top row
-    story.append(_kv_row([
-        ("Builty / LR No", builty.get("builty_no", "")),
-        ("Date", builty.get("date", "")),
-        ("Truck No", builty.get("truck_no", "")),
-    ], col_widths=[28 * mm, 32 * mm, 22 * mm, 28 * mm, 22 * mm, 28 * mm]))
-    story.append(Spacer(1, 4))
+    def P(value="", style=small):
+        return Paragraph(_safe(value or "", 350), style)
 
-    # Consignor / Consignee
-    consignor_lines = [
-        builty.get("consignor") or firm.get("name", ""),
-        firm.get("address", ""),
-        f"GSTIN: {firm.get('gstin','')}",
-    ]
-    consignee_lines = [
-        builty.get("consignee") or do_row.get("customer_name", ""),
-        do_row.get("ship_to") or do_row.get("bill_to") or "",
-        f"GSTIN: {do_row.get('customer_gstin','')}",
-    ]
-    pc_tbl = Table(
-        [[_party_block("CONSIGNOR", consignor_lines),
-          _party_block("CONSIGNEE", consignee_lines)]],
-        colWidths=[90 * mm, 90 * mm],
-    )
-    pc_tbl.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
-    story.append(pc_tbl)
-    story.append(Spacer(1, 4))
+    def cell_table(rows, widths, heights=None, font=small, align=None):
+        t = Table(rows, colWidths=widths, rowHeights=heights, repeatRows=0, hAlign="LEFT")
+        commands = [
+            ("BOX", (0, 0), (-1, -1), 0.65, colors.black),
+            ("INNERGRID", (0, 0), (-1, -1), 0.45, colors.black),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 4),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ]
+        if align:
+            commands.extend(align)
+        t.setStyle(TableStyle(commands))
+        return t
 
-    # From / To / Material grid
-    story.append(_kv_row([
-        ("From", builty.get("from_place") or do_row.get("from_place", "")),
-        ("To", builty.get("to_place") or do_row.get("to_place", "")),
-        ("DO No", do_row.get("do_no", "")),
-    ], col_widths=[18 * mm, 50 * mm, 14 * mm, 50 * mm, 18 * mm, 30 * mm]))
-    story.append(Spacer(1, 2))
-    story.append(_kv_row([
-        ("Material", do_row.get("material", "")),
-        ("HSN", do_row.get("hsn", "")),
-    ], col_widths=[22 * mm, 108 * mm, 14 * mm, 36 * mm]))
-    story.append(Spacer(1, 2))
-    story.append(_kv_row([
-        ("E-Way Bill", builty.get("ewaybill", "")),
-        ("Driver", builty.get("driver_name", "")),
-    ], col_widths=[22 * mm, 68 * mm, 20 * mm, 70 * mm]))
-    story.append(Spacer(1, 6))
+    def val(obj, key, default=""):
+        try:
+            return obj.get(key) or default
+        except Exception:
+            return default
 
-    # Freight breakup
-    qty = float(builty.get("qty") or 0)
-    rate = float(builty.get("freight_rate") or 0)
-    freight = float(builty.get("freight_amount") or (qty * rate))
-    gst = round(freight * 0.05, 2)  # 5% RCM assumed, informational
-    total = round(freight + gst, 2)
-    freight_tbl = Table([
-        [Paragraph("<b>Particulars</b>", BOLD),
-         Paragraph("<b>Qty (TON)</b>", BOLD),
-         Paragraph("<b>Rate / TON</b>", BOLD),
-         Paragraph("<b>Freight</b>", BOLD)],
-        [Paragraph(_safe(do_row.get("material", "-"), 240), CELL),
-         f"{qty:.3f}", f"{rate:.2f}", f"{freight:.2f}"],
-        [Paragraph("GST @ 5% (RCM — payable by consignee)", CELL), "", "", f"{gst:.2f}"],
-        [Paragraph("<b>Total Freight</b>", BOLD), "", "", Paragraph(f"<b>{total:.2f}</b>", BOLD)],
-    ], colWidths=[90 * mm, 30 * mm, 30 * mm, 30 * mm])
-    freight_tbl.setStyle(TableStyle([
-        ("BOX", (0, 0), (-1, -1), 0.6, LINE),
-        ("INNERGRID", (0, 0), (-1, -1), 0.3, LINE),
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F3E8E8")),
-        ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 4),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+    # Top risk note and transporter heading
+    risk = Table([[P("AT OWNER'S RISK")]], colWidths=[202 * mm])
+    risk.setStyle(TableStyle([("BOX",(0,0),(-1,-1),0.65,colors.black),
+                              ("LEFTPADDING",(0,0),(-1,-1),4),
+                              ("TOPPADDING",(0,0),(-1,-1),1),
+                              ("BOTTOMPADDING",(0,0),(-1,-1),1)]))
+    story.append(risk)
+    head = Table([[P(val(FIRM if "FIRM" in globals() else firm, "name", "MANSI COAL CARRIER").upper(), title)],
+                  [P("LIGNITE SUPPLIER & COMMISSION AGENT", subtitle)]],
+                 colWidths=[202 * mm], rowHeights=[23 * mm, 12 * mm])
+    head.setStyle(TableStyle([("BOX",(0,0),(-1,-1),0.65,colors.black),
+                              ("LEFTPADDING",(0,0),(-1,-1),3),
+                              ("RIGHTPADDING",(0,0),(-1,-1),3),
+                              ("TOPPADDING",(0,0),(-1,-1),0),
+                              ("BOTTOMPADDING",(0,0),(-1,-1),0),
+                              ("VALIGN",(0,0),(-1,-1),"MIDDLE")]))
+    story.append(head)
+
+    lr_no = val(builty, "builty_no", val(builty, "lr_no", val(builty, "id", "")))
+    lr_date = val(builty, "date", "")
+    row1 = [[P("L.R. No."), P(lr_no, bold), P("L.R. Date"), P(lr_date, bold)]]
+    story.append(cell_table(row1, [25*mm, 78*mm, 25*mm, 74*mm]))
+
+    # Consignor / consignee columns
+    consignor_name = val(builty, "consignor", "G.M.D.C. LTD.")
+    consignor_gstin = val(do_row, "gmdc_gstin", "24AAACG7987P1ZT")
+    consignee_name = val(builty, "consignee", val(do_row, "customer_name", ""))
+    destination = val(builty, "center_name", val(builty, "to_place", val(do_row, "to_place", "")))
+    consignee_gstin = val(do_row, "customer_gstin", "")
+    left_lines = [P(": CONSIGNOR :", bold), P(consignor_name), P(""), P("GSTIN : " + str(consignor_gstin))]
+    right_lines = [P(": CONSIGNEE :", bold), P(consignee_name), P(destination), P("GSTIN : " + str(consignee_gstin))]
+    parties = Table([[left_lines, right_lines]], colWidths=[101*mm, 101*mm])
+    parties.setStyle(TableStyle([
+        ("BOX",(0,0),(-1,-1),0.65,colors.black),("INNERGRID",(0,0),(-1,-1),0.45,colors.black),
+        ("VALIGN",(0,0),(-1,-1),"TOP"),("LEFTPADDING",(0,0),(-1,-1),5),
+        ("RIGHTPADDING",(0,0),(-1,-1),5),("TOPPADDING",(0,0),(-1,-1),5),
+        ("BOTTOMPADDING",(0,0),(-1,-1),5),
     ]))
-    story.append(freight_tbl)
-    story.append(Spacer(1, 6))
+    story.append(parties)
 
-    if builty.get("remarks"):
-        story.append(Paragraph(f"<b>Remarks:</b> {builty['remarks']}", CELL))
-        story.append(Spacer(1, 6))
+    row2 = [[P("DO No. :"), P(val(do_row, "do_no", val(do_row, "gmdc_do_no", "")), bold),
+             P("Regi.No. :"), P(val(do_row, "regi_no", val(do_row, "customer_no", "")), bold),
+             P("Challan No. :"), P(val(builty, "challan_no", ""), bold),
+             P("Quota Dt. :"), P(val(builty, "quota_date", ""), bold)]]
+    story.append(cell_table(row2, [20*mm, 28*mm, 22*mm, 28*mm, 25*mm, 26*mm, 22*mm, 31*mm]))
 
-    # Terms + signatures
-    terms = (
-        "Terms &amp; Conditions: Goods carried entirely at owner's risk. "
-        "Delivery subject to the standard conditions of carriage. "
-        "Any claim must be lodged within 7 days of delivery."
-    )
-    story.append(Paragraph(terms, ParagraphStyle("tx", parent=CELL, fontSize=7.5, textColor=colors.grey)))
-    story.append(Spacer(1, 18))
-
-    sig = Table([
-        ["Receiver's Signature", "", "For " + firm.get("name", "RADHE RADHE DEVELOPER")],
-        ["", "", ""],
-        ["", "", "Authorised Signatory"],
-    ], colWidths=[70 * mm, 40 * mm, 70 * mm])
-    sig.setStyle(TableStyle([
-        ("LINEABOVE", (0, 2), (0, 2), 0.5, INK),
-        ("LINEABOVE", (2, 2), (2, 2), 0.5, INK),
-        ("ALIGN", (2, 0), (2, -1), "RIGHT"),
+    desc = val(do_row, "material", val(do_row, "item_name", "LIGNITE"))
+    to_place = val(builty, "center_name", val(builty, "to_place", val(do_row, "to_place", "")))
+    if to_place:
+        desc = (str(desc) + "    " + str(to_place)).strip()
+    # Sample layout: Description / Weight / Freight / To Pay / Paid Amount
+    goods = Table([
+        [P("D e s c r i p t i o n", bold), P("Weight", bold), P("Freight", bold), P("To Pay /<br/>Paid Amount", bold)],
+        [P(desc, bold), P(f"{float(val(builty, 'qty', 0) or 0):.3f}", center),
+         P(f"{float(val(builty, 'freight_amount', 0) or 0):.2f}" if float(val(builty, 'freight_amount', 0) or 0) else "", center),
+         P("To Be Billed", center)]
+    ], colWidths=[96*mm, 33*mm, 37*mm, 36*mm], rowHeights=[12*mm, 14*mm])
+    goods.setStyle(TableStyle([
+        ("BOX",(0,0),(-1,-1),0.65,colors.black),("INNERGRID",(0,0),(-1,-1),0.45,colors.black),
+        ("ALIGN",(0,0),(-1,-1),"CENTER"),("VALIGN",(0,0),(-1,-1),"MIDDLE"),
+        ("LEFTPADDING",(0,0),(-1,-1),5),("RIGHTPADDING",(0,0),(-1,-1),5),
+        ("TOPPADDING",(0,0),(-1,-1),3),("BOTTOMPADDING",(0,0),(-1,-1),3),
     ]))
-    story.append(sig)
+    story.append(goods)
 
+    truck = val(builty, "truck_no", "")
+    driver = val(builty, "driver_name", "")
+    address = val(builty, "address", "")
+    mobile = val(builty, "mobile_no", "")
+    owner = val(builty, "owner_name", "")
+    cgst_rate = float(val(builty, "cgst_rate", 0) or 0)
+    sgst_rate = float(val(builty, "sgst_rate", 0) or 0)
+    freight = float(val(builty, "freight_amount", 0) or 0)
+    gst_rows = [
+        [P(f"Truck No. :       {truck}<br/>Driver's Name :    {driver}<br/>Address :          {address}<br/>Truck Owner Name : {owner}<br/>Mobile No. :       {mobile}"),
+         P(f"CGST  {cgst_rate:.2f}%<br/>SGST  {sgst_rate:.2f}%<br/>Total :", small),
+         P(f"{freight * cgst_rate / 100:.2f}<br/>{freight * sgst_rate / 100:.2f}<br/>{freight * (cgst_rate + sgst_rate) / 100:.2f}", right)]
+    ]
+    details = Table(gst_rows, colWidths=[126*mm, 42*mm, 34*mm], rowHeights=[29*mm])
+    details.setStyle(TableStyle([
+        ("BOX",(0,0),(-1,-1),0.65,colors.black),("INNERGRID",(0,0),(-1,-1),0.45,colors.black),
+        ("VALIGN",(0,0),(-1,-1),"TOP"),("LEFTPADDING",(0,0),(-1,-1),5),
+        ("RIGHTPADDING",(0,0),(-1,-1),5),("TOPPADDING",(0,0),(-1,-1),5),
+        ("BOTTOMPADDING",(0,0),(-1,-1),5),
+    ]))
+    story.append(details)
+
+    terms_text = "* 200 Kg. Shortage allowed. We are not responsible for quality,\nLignite direct loading from mines.\n* GST TO BE PAID UNDER RCM"
+    terms = Table([[P(terms_text), P("For MANSI COAL CARRIER", bold)]],
+                  colWidths=[124*mm, 78*mm], rowHeights=[20*mm])
+    terms.setStyle(TableStyle([
+        ("BOX",(0,0),(-1,-1),0.65,colors.black),("INNERGRID",(0,0),(-1,-1),0.45,colors.black),
+        ("VALIGN",(0,0),(-1,-1),"BOTTOM"),("LEFTPADDING",(0,0),(-1,-1),5),
+        ("RIGHTPADDING",(0,0),(-1,-1),5),("TOPPADDING",(0,0),(-1,-1),5),
+        ("BOTTOMPADDING",(0,0),(-1,-1),5),
+    ]))
+    story.append(terms)
     doc.build(story)
     return str(out_path)
-
 
 def generate_bill_pdf(out_path, firm, bill, builties):
     """firm as above; bill: dict row from bills; builties: list of dict rows."""
