@@ -24,14 +24,14 @@ SUB = ParagraphStyle(
     "s", parent=STYLES["Normal"], fontName="Helvetica",
     fontSize=9, alignment=1, textColor=INK,
 )
-CELL = ParagraphStyle("c", parent=STYLES["Normal"], fontSize=9, textColor=INK)
+CELL = ParagraphStyle("c", parent=STYLES["Normal"], fontSize=8, leading=10, textColor=INK, wordWrap="CJK", splitLongWords=1)
 BOLD = ParagraphStyle(
     "b", parent=STYLES["Normal"], fontName="Helvetica-Bold",
     fontSize=9, textColor=INK,
 )
 
 
-def _header(firm_name, firm_sub, copy_label):
+def _safe(value, limit=500):\n    """Escape user/PDF text before passing it to ReportLab Paragraph markup."""\n    text = str(value or "").replace("\\r", " ").replace("\\n", " ")\n    return escape(text[:limit])\n\ndef _header(firm_name, firm_sub, copy_label):
     data = [[
         Paragraph(firm_name, TITLE),
     ], [
@@ -52,7 +52,7 @@ def _kv_row(pairs, col_widths):
     cells = []
     for label, value in pairs:
         cells.append(Paragraph(f"<b>{label}</b>", CELL))
-        cells.append(Paragraph(str(value or "-"), CELL))
+        cells.append(Paragraph(_safe(value or "-"), CELL))
     tbl = Table([cells], colWidths=col_widths)
     tbl.setStyle(TableStyle([
         ("BOX", (0, 0), (-1, -1), 0.5, LINE),
@@ -152,7 +152,7 @@ def generate_builty_pdf(out_path, firm, builty, do_row, copy_label="CONSIGNOR CO
          Paragraph("<b>Qty (TON)</b>", BOLD),
          Paragraph("<b>Rate / TON</b>", BOLD),
          Paragraph("<b>Freight</b>", BOLD)],
-        [Paragraph(do_row.get("material", "-"), CELL),
+        [Paragraph(_safe(do_row.get("material", "-"), 240), CELL),
          f"{qty:.3f}", f"{rate:.2f}", f"{freight:.2f}"],
         [Paragraph("GST @ 5% (RCM — payable by consignee)", CELL), "", "", f"{gst:.2f}"],
         [Paragraph("<b>Total Freight</b>", BOLD), "", "", Paragraph(f"<b>{total:.2f}</b>", BOLD)],
