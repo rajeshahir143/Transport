@@ -64,9 +64,12 @@ def parse_pdf(path):
             "extended_price": _num(match.group(7)),
         })
     schedule_rows.sort(key=lambda r: __import__("datetime").datetime.strptime(r["schedule_date"], "%d-%b-%y"))
-    # GMDC DO destination is printed as "TO MA DIST" on several layouts.
+    # Extract "TO MA DIST" separately from the ordinary "TO" destination.
+    to_ma_dist = grab(
+        r"\bTO\s+MA\s+DIST\.?\s*[:\-]?\s*(.+?)(?=\s+(?:TO\s*:|TO\s+[A-Z][A-Z .&()'-]{1,40}\b|FROM\b|TRANSPORTER\b|ORDER\s+TOTAL\b|CUSTOMER\b)|$)"
+    ).strip(" .-")
     to_place = grab(
-        r"\bTO\s+(?:MA\s+)?DIST\.?\s*[:\-]?\s*([A-Z][A-Z .&()'-]{1,50}?)(?=\s+(?:FROM\b|TRANSPORTER\b|TRANSPORTER\s+CODE\b|ORDER\s+TOTAL\b|CUSTOMER\b|$))"
+        r"\bTO\s*:\s*([A-Z][A-Z .&()'-]{1,50}?)(?=\s+(?:FROM\b|TRANSPORTER\b|ORDER\s+TOTAL\b|CUSTOMER\b|$))"
     ).strip(" .-")
     # Keep the transporter name clean and consistent for Builty Sale Party.
     transporter_name = grab(r"\bMANSI\s+COAL\s+CARRI(?:ER|ER)\b")
@@ -93,7 +96,7 @@ def parse_pdf(path):
         "transporter_code": grab(r"\bTransporter Code\s*:\s*([A-Z0-9]+)"),
         "transporter_name": transporter_name,
         "order_total": _num(grab(r"\bORDER TOTAL\s+([0-9,]+(?:\.[0-9]+)?)")),
-        "from_place": "BHAVNAGAR", "to_place": to_place
+        "from_place": "BHAVNAGAR", "to_place": to_place, "to_ma_dist": to_ma_dist
     }
     if schedule_rows:
         data["schedule_date"] = schedule_rows[0]["schedule_date"]
