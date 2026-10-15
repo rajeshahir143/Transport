@@ -795,6 +795,12 @@ class App(tk.Tk):
         self.b_vars["do_no"].set(row["do_no"] or "")
         self.b_vars["from_place"].set(row["from_place"] or "BHAVNAGAR")
         self.b_vars["to_place"].set(row["to_place"] or "")
+        # SWASTIK-style defaults: Sale Party is the transporter, Center is DO's TO destination.
+        transporter = (row["transporter_name"] or "").strip()
+        if transporter and "MANSI COAL" in transporter.upper():
+            transporter = "MANSI COAL CARRIER"
+        self.b_vars["sale_party"].set(transporter or "MANSI COAL CARRIER")
+        self.b_vars["center_name"].set((row["to_place"] or "").strip())
         self.b_vars["consignee"].set(row["customer_name"] or "")
         if not self.b_vars["qty"].get():
             self.b_vars["qty"].set(f"{pending:.3f}")
