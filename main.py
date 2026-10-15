@@ -246,7 +246,7 @@ class App(tk.Tk):
                            order_type,bill_to,ship_to,state,hsn,material,schedule_date,qty,uom,
                            unit_price,extended_price,transporter_code,transporter_name,order_total,
                            from_place,to_place,to_ma_dist,remaining_qty,source_pdf)
-                           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                         (vals["do_no"], vals["gmdc_do_no"], vals["do_date"], vals["customer_no"], vals["customer_name"],
                          vals["customer_gstin"], vals["order_type"], vals["bill_to"], vals["ship_to"],
                          vals["state"], vals["hsn"], vals["material"], vals["schedule_date"],
