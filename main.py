@@ -195,7 +195,7 @@ class App(tk.Tk):
             ("unit_price", "Unit Price"), ("extended_price", "Extended Price"),
             ("transporter_code", "Transporter Code"), ("transporter_name", "Transporter Name"),
             ("order_total", "Order Total"),
-            ("from_place", "From"), ("to_place", "To"), ("to_ma_dist", "To MA DIST"),
+            ("from_place", "From"), ("to_place", "To"),
         ]
         vars_ = {}
         frm = ttk.Frame(w, padding=10)
@@ -238,7 +238,7 @@ class App(tk.Tk):
                          vals["state"], vals["hsn"], vals["material"], vals["schedule_date"],
                          qty, vals["uom"], _f(vals["unit_price"]), _f(vals["extended_price"]),
                          vals["transporter_code"], vals["transporter_name"], _f(vals["order_total"]),
-                         vals["from_place"], vals["to_place"], vals["to_ma_dist"], new_remaining, existing_id),
+                         vals["from_place"], vals["to_place"], vals["to_place"], new_remaining, existing_id),
                     )
                 else:
                     con.execute(
@@ -252,7 +252,7 @@ class App(tk.Tk):
                          vals["state"], vals["hsn"], vals["material"], vals["schedule_date"],
                          qty, vals["uom"], _f(vals["unit_price"]), _f(vals["extended_price"]),
                          vals["transporter_code"], vals["transporter_name"], _f(vals["order_total"]),
-                         vals["from_place"], vals["to_place"], vals["to_ma_dist"], qty, source_pdf or ""),
+                         vals["from_place"], vals["to_place"], vals["to_place"], qty, source_pdf or ""),
                     )
                 if schedule_rows:
                     if existing_id:
