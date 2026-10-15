@@ -195,7 +195,7 @@ class App(tk.Tk):
             ("unit_price", "Unit Price"), ("extended_price", "Extended Price"),
             ("transporter_code", "Transporter Code"), ("transporter_name", "Transporter Name"),
             ("order_total", "Order Total"),
-            ("from_place", "From"), ("to_place", "To"),
+            ("from_place", "From"), ("to_place", "To"), ("to_ma_dist", "To MA DIST"),
         ]
         vars_ = {}
         frm = ttk.Frame(w, padding=10)
@@ -231,28 +231,28 @@ class App(tk.Tk):
                            customer_gstin=?, order_type=?, bill_to=?, ship_to=?, state=?, hsn=?,
                            material=?, schedule_date=?, qty=?, uom=?, unit_price=?, extended_price=?,
                            transporter_code=?, transporter_name=?, order_total=?,
-                           from_place=?, to_place=?, remaining_qty=?
+                           from_place=?, to_place=?, to_ma_dist=?, remaining_qty=?
                            WHERE id=?""",
                         (vals["do_no"], vals["gmdc_do_no"], vals["do_date"], vals["customer_no"], vals["customer_name"],
                          vals["customer_gstin"], vals["order_type"], vals["bill_to"], vals["ship_to"],
                          vals["state"], vals["hsn"], vals["material"], vals["schedule_date"],
                          qty, vals["uom"], _f(vals["unit_price"]), _f(vals["extended_price"]),
                          vals["transporter_code"], vals["transporter_name"], _f(vals["order_total"]),
-                         vals["from_place"], vals["to_place"], new_remaining, existing_id),
+                         vals["from_place"], vals["to_place"], vals["to_ma_dist"], new_remaining, existing_id),
                     )
                 else:
                     con.execute(
                         """INSERT INTO dos(do_no,gmdc_do_no,do_date,customer_no,customer_name,customer_gstin,
                            order_type,bill_to,ship_to,state,hsn,material,schedule_date,qty,uom,
                            unit_price,extended_price,transporter_code,transporter_name,order_total,
-                           from_place,to_place,remaining_qty,source_pdf)
+                           from_place,to_place,to_ma_dist,remaining_qty,source_pdf)
                            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                         (vals["do_no"], vals["gmdc_do_no"], vals["do_date"], vals["customer_no"], vals["customer_name"],
                          vals["customer_gstin"], vals["order_type"], vals["bill_to"], vals["ship_to"],
                          vals["state"], vals["hsn"], vals["material"], vals["schedule_date"],
                          qty, vals["uom"], _f(vals["unit_price"]), _f(vals["extended_price"]),
                          vals["transporter_code"], vals["transporter_name"], _f(vals["order_total"]),
-                         vals["from_place"], vals["to_place"], qty, source_pdf or ""),
+                         vals["from_place"], vals["to_place"], vals["to_ma_dist"], qty, source_pdf or ""),
                     )
                 if schedule_rows:
                     if existing_id:
