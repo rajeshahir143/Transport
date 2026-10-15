@@ -73,6 +73,7 @@ def init_db():
             source_pdf TEXT,
             from_place TEXT DEFAULT 'BHAVNAGAR',
             to_place TEXT,
+            to_ma_dist TEXT,
             created_at TEXT DEFAULT (datetime('now','localtime'))
         );
 
