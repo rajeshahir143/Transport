@@ -31,7 +31,12 @@ BOLD = ParagraphStyle(
 )
 
 
-def _safe(value, limit=500):\n    """Escape user/PDF text before passing it to ReportLab Paragraph markup."""\n    text = str(value or "").replace("\\r", " ").replace("\\n", " ")\n    return escape(text[:limit])\n\ndef _header(firm_name, firm_sub, copy_label):
+def _safe(value, limit=500):
+    """Escape user/PDF text before passing it to ReportLab Paragraph markup."""
+    text = str(value or "").replace("\r", " ").replace("\n", " ")
+    return escape(text[:limit])
+
+\ndef _header(firm_name, firm_sub, copy_label):
     data = [[
         Paragraph(firm_name, TITLE),
     ], [
