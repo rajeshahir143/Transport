@@ -1092,71 +1092,105 @@ class App(tk.Tk):
         self.update_selected_total()
 
     def update_selected_total(self, _e=None):
-        total = 0.0
-        for i in self.pb.selection():
-            v = self.pb.item(i)["values"]
-            if v:
-                total += _f(v[6])
-        self.bill_total.set(f"Selected Qty: {total:.3f} TON")
+        selected = [self.pb.item(i)["values"] for i in self.pb.selection()]
+        count = len(selected)
+        desp = sum(_f(v[6]) for v in selected if v)
+        rcpt = sum(_f(v[7]) for v in selected if v)
+        rate = _f(self.bill_vars["rate_per_ton"].get())
+        if rate <= 0 and desp:
+            rate = sum(_f(v[8]) * _f(v[6]) for v in selected if v) / desp
+        basis = self.bill_vars["weight_basis"].get()
+        taxable_qty = min(desp, rcpt) if basis == "Both Less" else (desp if basis == "Despatch" else rcpt)
+        gross = round(taxable_qty * rate, 2)
+        gst = round(gross * (_f(self.bill_vars["cgst_pct"].get()) + _f(self.bill_vars["sgst_pct"].get()) + _f(self.bill_vars["igst_pct"].get())) / 100, 2)
+        net_before_round = gross + gst
+        net = round(net_before_round)
+        self.bill_total.set(str(count))
+        self.bill_desp.set(f"{desp:.3f}")
+        self.bill_rcpt.set(f"{rcpt:.3f}")
+        self.bill_gross.set(f"{gross:,.2f}")
+        self.bill_gst.set(f"{gst:,.2f}")
+        self.bill_round.set(f"{net - net_before_round:,.2f}")
+        self.bill_net.set(f"{net:,.2f}")
+        if selected:
+            try:
+                con = db()
+                row = con.execute("SELECT d.customer_name,d.material,d.from_place,d.do_no FROM dos d JOIN builtys b ON b.do_id=d.id WHERE b.id=?", (int(selected[0][0]),)).fetchone()
+                con.close()
+                if row:
+                    self.bill_vars["party_name"].set(row["customer_name"] or "")
+                    self.bill_vars["item_name"].set(row["material"] or "")
+                    self.bill_vars["mines_name"].set(row["from_place"] or "")
+                    self.bill_vars["do_no"].set(row["do_no"] or "")
+            except Exception:
+                pass
 
     def create_bill(self):
         sel = self.pb.selection()
         if not sel:
             messagebox.showwarning("Select Builty", "Select one or more pending Builty records.")
             return
+        ids = [int(self.pb.item(i)["values"][0]) for i in sel]
+        con = db()
         rows = []
-        for i in sel:
-            v = self.pb.item(i)["values"]
-            rows.append({"id": int(v[0]), "customer": v[3], "qty": _f(v[6])})
-        customer = rows[0]["customer"]
-        if any(r["customer"] != customer for r in rows):
+        for bid in ids:
+            row = con.execute("""SELECT b.id,b.qty,b.despatch_weight,b.receipt_weight,b.sale_rate,
+                b.sale_amount,d.customer_name,d.customer_gstin,d.material,d.from_place,d.do_no
+                FROM builtys b JOIN dos d ON d.id=b.do_id WHERE b.id=?""", (bid,)).fetchone()
+            if row:
+                rows.append(dict(row))
+        if not rows:
+            con.close()
+            messagebox.showerror("Bill", "Selected Builty records could not be loaded.")
+            return
+        customer = rows[0]["customer_name"] or ""
+        if any((r["customer_name"] or "") != customer for r in rows):
+            con.close()
             messagebox.showerror("Customer mismatch", "Select Builty records of the same customer.")
             return
-        total_qty = sum(r["qty"] for r in rows)
+        desp = sum(_f(r["despatch_weight"] or r["qty"]) for r in rows)
+        rcpt = sum(_f(r["receipt_weight"] or r["qty"]) for r in rows)
+        basis = self.bill_vars["weight_basis"].get()
+        qty = min(desp, rcpt) if basis == "Both Less" else (desp if basis == "Despatch" else rcpt)
         rate = _f(self.bill_vars["rate_per_ton"].get())
-        sub = round(total_qty * rate, 2)
+        if rate <= 0:
+            rate = (sum(_f(r["sale_rate"]) * _f(r["despatch_weight"] or r["qty"]) for r in rows) / desp) if desp else 0
+        sub = round(qty * rate, 2)
         cgst = round(sub * _f(self.bill_vars["cgst_pct"].get()) / 100, 2)
         sgst = round(sub * _f(self.bill_vars["sgst_pct"].get()) / 100, 2)
         igst = round(sub * _f(self.bill_vars["igst_pct"].get()) / 100, 2)
-        total = round(sub + cgst + sgst + igst, 2)
-
-        con = db()
+        before_round = sub + cgst + sgst + igst
+        total = round(before_round)
         try:
-            cur = con.execute(
-                """INSERT INTO bills(bill_no,bill_date,bill_type,customer_name,total_qty,
-                   rate_per_ton,subtotal,cgst,sgst,igst,total)
-                   VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
-                (self.bill_vars["bill_no"].get().strip(),
-                 self.bill_vars["bill_date"].get().strip(),
-                 "MATERIAL", customer, total_qty, rate, sub, cgst, sgst, igst, total),
-            )
+            cur = con.execute("""INSERT INTO bills(bill_no,bill_date,bill_type,customer_name,customer_gstin,total_qty,
+                rate_per_ton,subtotal,cgst,sgst,igst,total,remarks) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (self.bill_vars["bill_no"].get().strip() or None, self.bill_vars["bill_date"].get().strip(),
+                 "MATERIAL", customer, rows[0]["customer_gstin"] or "", qty, rate, sub, cgst, sgst, igst, total,
+                 self.bill_vars["remarks"].get().strip()))
             bill_id = cur.lastrowid
             for r in rows:
-                con.execute("INSERT INTO bill_builtys(bill_id,builty_id) VALUES(?,?)",
-                            (bill_id, r["id"]))
+                con.execute("INSERT INTO bill_builtys(bill_id,builty_id) VALUES(?,?)", (bill_id, r["id"]))
                 con.execute("UPDATE builtys SET billed=1 WHERE id=?", (r["id"],))
             con.commit()
         except Exception as e:
             con.close()
             messagebox.showerror("Bill", str(e))
             return
-
         bill_row = dict(con.execute("SELECT * FROM bills WHERE id=?", (bill_id,)).fetchone())
-        gstin_row = con.execute(
-            "SELECT customer_gstin FROM dos d JOIN builtys b ON b.do_id=d.id WHERE b.id=?",
-            (rows[0]["id"],)
-        ).fetchone()
-        bill_row["customer_gstin"] = gstin_row["customer_gstin"] if gstin_row else ""
+        bill_row.update({"customer_gstin": rows[0]["customer_gstin"] or "",
+                         "due_date": self.bill_vars["due_date"].get(),
+                         "gst_paid_by": self.bill_vars["gst_paid_by"].get(),
+                         "round_off": total - before_round,
+                         "party_name": customer, "item_name": rows[0]["material"] or "",
+                         "mines_name": rows[0]["from_place"] or "",
+                         "do_no": rows[0]["do_no"] or ""})
         builty_rows = []
         for r in rows:
-            br = con.execute(
-                """SELECT b.builty_no,b.truck_no,b.date,b.qty,d.do_no FROM builtys b
-                   JOIN dos d ON d.id=b.do_id WHERE b.id=?""",
-                (r["id"],),
-            ).fetchone()
+            br = con.execute("""SELECT b.builty_no,b.truck_no,b.date,b.qty,b.despatch_weight,b.receipt_weight,
+                b.sale_rate,b.sale_amount,d.do_no,d.material,d.from_place
+                FROM builtys b JOIN dos d ON d.id=b.do_id WHERE b.id=?""", (r["id"],)).fetchone()
             builty_rows.append(dict(br))
         con.close()
-
         out = EXPORT_DIR / f"Bill_{bill_row['bill_no'] or bill_id}.pdf"
         try:
             generate_bill_pdf(out, FIRM, bill_row, builty_rows)
