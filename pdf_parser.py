@@ -99,6 +99,19 @@ def parse_pdf(path):
         "order_total": _num(grab(r"\bORDER TOTAL\s+([0-9,]+(?:\.[0-9]+)?)")),
         "from_place": "BHAVNAGAR", "to_place": (to_ma_dist or to_place), "to_ma_dist": to_ma_dist
     }
+    # Keep extracted values field-specific; never place a whole PDF text block in a DO field.
+    def field_value(value, max_len=100):
+        value = _clean(value)
+        if len(value) > max_len:
+            return ""
+        if re.search(r"Whether Tax Payable|Schedule Date|Transporter Code|Transporter Name|Extended Price|ORDER TOTAL|Qty:|Unit Price", value, re.I):
+            return ""
+        return value
+
+    for key in ("customer_name", "bill_to", "ship_to", "state", "order_type", "transporter_name", "to_place"):
+        data[key] = field_value(data.get(key), 120 if key in ("customer_name", "bill_to", "ship_to") else 70)
+    data["customer_gstin"] = customer_gstin if customer_gstin != GMDC_GSTIN else ""
+
     if schedule_rows:
         data["schedule_date"] = schedule_rows[0]["schedule_date"]
         data["qty"] = sum(r["qty"] for r in schedule_rows)
