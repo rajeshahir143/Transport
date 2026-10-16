@@ -105,7 +105,9 @@ def parse_pdf(path):
         data["uom"] = schedule_rows[0]["uom"]
         data["unit_price"] = schedule_rows[0]["unit_price"]
         data["extended_price"] = sum(r["extended_price"] for r in schedule_rows)
-        data["material"] = data["material"] or schedule_rows[0]["item"]
+        # Prefer the clean item name from the schedule table over mis-extracted description text.
+        # Examples: MATA NO MADH 'A' GRADE or BHAVNAGAR 'A' GRADE.
+        data["material"] = schedule_rows[0]["item"] or data["material"]
     else:
         data["qty"] = _num(grab(r"\bTotal Qty\s*[: ]+([0-9,]+(?:\.[0-9]+)?)"))
     return data
