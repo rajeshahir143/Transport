@@ -230,12 +230,12 @@ def generate_bill_pdf(out_path, firm, bill, builties):
     """Create a printable final bill PDF with Builty-wise weights, rates and amounts."""
     doc = SimpleDocTemplate(str(out_path), pagesize=A4,
         leftMargin=8*mm, rightMargin=8*mm, topMargin=8*mm, bottomMargin=9*mm)
-    normal = ParagraphStyle("FinalBillNormal", parent=CELL, fontSize=7.5, leading=9)
+    normal = ParagraphStyle("FinalBillNormal", parent=CELL, fontSize=8.2, leading=10)
     bold = ParagraphStyle("FinalBillBold", parent=normal, fontName="Helvetica-Bold")
     title = ParagraphStyle("FinalBillTitle", parent=normal, fontName="Helvetica-Bold",
-                           fontSize=16, leading=19, alignment=1)
+                           fontSize=18, leading=22, alignment=1)
     subtitle = ParagraphStyle("FinalBillSubtitle", parent=normal, fontName="Helvetica-Bold",
-                             fontSize=10, leading=12, alignment=1)
+                             fontSize=11, leading=14, alignment=1)
     center = ParagraphStyle("FinalBillCenter", parent=normal, alignment=1)
     right = ParagraphStyle("FinalBillRight", parent=normal, alignment=2)
     def para(value, style=normal):
@@ -288,14 +288,14 @@ def generate_bill_pdf(out_path, firm, bill, builties):
         [para("Invoice Type :", bold), para(invoice_label, bold),
          para("Period From :", bold), para(bill.get("period_from") or ""),
          para("Period To :", bold), para(bill.get("period_to") or "")],
-    ], colWidths=[22*mm, 39*mm, 24*mm, 39*mm, 22*mm, 32*mm])
+    ], colWidths=[20*mm, 43*mm, 22*mm, 43*mm, 22*mm, 36*mm])
     details.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.6,LINE), ("INNERGRID",(0,0),(-1,-1),0.3,LINE),
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"), ("LEFTPADDING",(0,0),(-1,-1),3),
-        ("RIGHTPADDING",(0,0),(-1,-1),3), ("TOPPADDING",(0,0),(-1,-1),4),
-        ("BOTTOMPADDING",(0,0),(-1,-1),4),
+        ("RIGHTPADDING",(0,0),(-1,-1),3), ("TOPPADDING",(0,0),(-1,-1),6),
+        ("BOTTOMPADDING",(0,0),(-1,-1),6),
     ]))
-    story.extend([details, Spacer(1, 6)])
+    story.extend([details, Spacer(1, 8)])
 
     headings = ["#", "Date", "Builty No.", "DO No.", "Vehicle No.",
                 "Mines", "Desp. Wt.", "Rcpt. Wt.", "Rate Rs.", "Amount Rs."]
