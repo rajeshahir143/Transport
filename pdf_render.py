@@ -264,7 +264,16 @@ def generate_bill_pdf(out_path, firm, bill, builties):
     do_numbers = list(dict.fromkeys(str(x.get("do_no") or "").strip() for x in builties if str(x.get("do_no") or "").strip()))
     detail_do = ", ".join(do_numbers)
     detail_item = first.get("material") or ""
-    detail_mines = first.get("from_place") or ""
+    # Final Bill must show only the GMDC material name, not copied PDF text.
+    material_match = __import__("re").search(
+        r"\b(MATA\s+NO\s+MADH\s+'?A'?\s+GRADE|BHAVNAGAR\s+'?A'?\s+GRADE)\b",
+        str(detail_item), __import__("re").I)
+    if material_match:
+        detail_item = __import__("re").sub(r"\s+", " ", material_match.group(1)).upper()
+        detail_item = __import__("re").sub(r"\bA\s+GRADE\b", "'A' GRADE", detail_item)
+    else:
+        detail_item = clean_detail(detail_item, "")
+    detail_mines = clean_detail(first.get("from_place"), "")
     party = clean_detail(bill.get("customer_name") or bill.get("party_name"), "")
     gstin = clean_detail(bill.get("customer_gstin"), "")
     shown_do = clean_detail(bill.get("do_no"), detail_do) or detail_do
