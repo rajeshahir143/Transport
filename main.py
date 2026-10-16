@@ -981,50 +981,90 @@ class App(tk.Tk):
 
     # ===================== BILL TAB =====================
     def bill_tab(self, nb):
-        f = ttk.Frame(nb, padding=10)
+        f = ttk.Frame(nb, padding=6)
         nb.add(f, text="3 · Bill (Material)")
-        top = ttk.Frame(f)
-        top.pack(fill="x")
-        ttk.Label(top, text="Pending Builty — select multiple of same party",
-                  style="Head.TLabel").pack(side="left")
-        ttk.Button(top, text="Refresh", command=self.refresh_bill).pack(side="right")
 
-        self.pb = ttk.Treeview(
-            f, columns=("id", "builty", "do", "customer", "truck", "date", "qty"),
-            show="headings", selectmode="extended", height=12,
-        )
-        for c, h, w in zip(
-            ("id", "builty", "do", "customer", "truck", "date", "qty"),
-            ["ID", "Builty No", "DO No", "Customer", "Truck", "Date", "Qty"],
-            [50, 110, 100, 260, 120, 100, 100],
-        ):
-            self.pb.heading(c, text=h)
-            self.pb.column(c, width=w)
-        self.pb.pack(fill="both", expand=True, pady=8)
-        self.pb.bind("<<TreeviewSelect>>", self.update_selected_total)
-
-        form = ttk.LabelFrame(f, text="Bill Details", padding=10)
-        form.pack(fill="x", pady=6)
-        self.bill_vars = {k: tk.StringVar() for k in
-                          ("bill_no", "bill_date", "rate_per_ton", "cgst_pct", "sgst_pct", "igst_pct")}
+        # Header fields similar to the supplied SWASTIK Bill screen.
+        head = ttk.LabelFrame(f, text="Bill Header", padding=6)
+        head.pack(fill="x", pady=(0, 5))
+        self.bill_vars = {k: tk.StringVar() for k in (
+            "bill_no", "bill_date", "due_date", "party_name", "item_name",
+            "mines_name", "do_no", "dnote_no", "period_from", "period_to",
+            "rate_per_ton", "gst_paid_by", "weight_basis", "cgst_pct",
+            "sgst_pct", "igst_pct", "remarks"
+        )}
+        self.bill_vars["bill_date"].set(datetime.now().strftime("%d/%m/%y"))
+        self.bill_vars["due_date"].set(datetime.now().strftime("%d/%m/%y"))
+        self.bill_vars["gst_paid_by"].set("Transporter")
+        self.bill_vars["weight_basis"].set("Both Less")
         self.bill_vars["cgst_pct"].set("0")
         self.bill_vars["sgst_pct"].set("0")
         self.bill_vars["igst_pct"].set("5")
-        pairs = [
-            ("Bill No", "bill_no"), ("Bill Date", "bill_date"),
-            ("Rate / TON", "rate_per_ton"),
-            ("CGST %", "cgst_pct"), ("SGST %", "sgst_pct"), ("IGST %", "igst_pct"),
+
+        header_fields = [
+            ("Party Name", "party_name", 28), ("Item Name", "item_name", 18),
+            ("Mines Name", "mines_name", 18), ("DO No.", "do_no", 14),
+            ("D/Note No.", "dnote_no", 12), ("Bill No.", "bill_no", 12),
+            ("Date", "bill_date", 12), ("Due Date", "due_date", 12),
+            ("Period From", "period_from", 12), ("Period To", "period_to", 12),
         ]
-        for i, (lab, k) in enumerate(pairs):
-            ttk.Label(form, text=lab).grid(row=0, column=i * 2, padx=4, pady=4, sticky="w")
-            ttk.Entry(form, textvariable=self.bill_vars[k], width=14).grid(row=0, column=i * 2 + 1, padx=4, pady=4)
+        for idx, (label, key, width) in enumerate(header_fields):
+            row, col = divmod(idx, 5)
+            ttk.Label(head, text=label).grid(row=row, column=col*2, sticky="w", padx=3, pady=3)
+            ttk.Entry(head, textvariable=self.bill_vars[key], width=width).grid(row=row, column=col*2+1, sticky="ew", padx=3, pady=3)
+        for col in range(10):
+            head.grid_columnconfigure(col, weight=1)
 
-        bottom = ttk.Frame(f)
-        bottom.pack(fill="x")
-        self.bill_total = tk.StringVar(value="Selected Qty: 0.000 TON")
-        ttk.Label(bottom, textvariable=self.bill_total, font=("Segoe UI", 11, "bold")).pack(side="left", padx=10)
-        ttk.Button(bottom, text="Create Bill & Print PDF", command=self.create_bill).pack(side="right")
+        listing = ttk.LabelFrame(f, text="Pending Builty — select multiple of same party", padding=4)
+        listing.pack(fill="both", expand=True)
+        cols = ("id", "do", "builty", "date", "vehicle", "mines", "desp", "rcpt", "rate", "amount")
+        heads = ("ID", "DO No.", "Builty No.", "Date", "Vehicle No.", "Mines", "Desp. Weight", "Rcpt. Weight", "Rate Rs.", "Amount Rs.")
+        widths = (42, 90, 90, 85, 120, 85, 100, 100, 95, 110)
+        self.pb = ttk.Treeview(listing, columns=cols, show="headings", selectmode="extended", height=10)
+        for col, title, width in zip(cols, heads, widths):
+            self.pb.heading(col, text=title)
+            self.pb.column(col, width=width, anchor="e" if col in ("desp", "rcpt", "rate", "amount") else "w")
+        self.pb.column("id", width=42, stretch=False)
+        self.pb.pack(fill="both", expand=True)
+        self.pb.bind("<<TreeviewSelect>>", self.update_selected_total)
 
+        settings = ttk.Frame(f)
+        settings.pack(fill="x", pady=5)
+        for idx, (label, key, width) in enumerate((
+            ("Rate / TON", "rate_per_ton", 10), ("CGST %", "cgst_pct", 7),
+            ("SGST %", "sgst_pct", 7), ("IGST %", "igst_pct", 7),
+        )):
+            ttk.Label(settings, text=label).grid(row=0, column=idx*2, sticky="w", padx=3)
+            ttk.Entry(settings, textvariable=self.bill_vars[key], width=width).grid(row=0, column=idx*2+1, padx=3)
+        ttk.Label(settings, text="GST Paid By").grid(row=0, column=8, padx=3)
+        ttk.Combobox(settings, textvariable=self.bill_vars["gst_paid_by"], values=("Transporter", "Customer", "Company"), state="readonly", width=13).grid(row=0, column=9, padx=3)
+        ttk.Label(settings, text="Weight").grid(row=0, column=10, padx=3)
+        ttk.Combobox(settings, textvariable=self.bill_vars["weight_basis"], values=("Both Less", "Despatch", "Receipt"), state="readonly", width=12).grid(row=0, column=11, padx=3)
+        ttk.Label(settings, text="Remarks").grid(row=1, column=0, padx=3, sticky="w")
+        ttk.Entry(settings, textvariable=self.bill_vars["remarks"], width=80).grid(row=1, column=1, columnspan=7, sticky="ew", padx=3)
+
+        totals = ttk.LabelFrame(f, text="Bill Totals", padding=5)
+        totals.pack(fill="x", pady=(0, 5))
+        self.bill_total = tk.StringVar(value="No. of Builties: 0")
+        self.bill_gross = tk.StringVar(value="0.00")
+        self.bill_gst = tk.StringVar(value="0.00")
+        self.bill_round = tk.StringVar(value="0.00")
+        self.bill_net = tk.StringVar(value="0.00")
+        self.bill_desp = tk.StringVar(value="0.000")
+        self.bill_rcpt = tk.StringVar(value="0.000")
+        for idx, (label, var) in enumerate((
+            ("No. of Builties", self.bill_total), ("Gross Amount", self.bill_gross),
+            ("GST Amt.", self.bill_gst), ("Round Off", self.bill_round),
+            ("Net Amount", self.bill_net), ("Desp. Weight", self.bill_desp),
+            ("Rcpt. Weight", self.bill_rcpt),
+        )):
+            ttk.Label(totals, text=label).grid(row=0, column=idx*2, padx=3, pady=2, sticky="w")
+            ttk.Label(totals, textvariable=var, style="Head.TLabel").grid(row=0, column=idx*2+1, padx=3, pady=2, sticky="w")
+
+        actions = ttk.Frame(f)
+        actions.pack(fill="x")
+        ttk.Button(actions, text="Refresh", command=self.refresh_bill).pack(side="left")
+        ttk.Button(actions, text="Create Bill & Print PDF", command=self.create_bill).pack(side="right")
         self.refresh_bill()
 
     def refresh_bill(self):
@@ -1034,13 +1074,19 @@ class App(tk.Tk):
             self.pb.delete(x)
         con = db()
         for r in con.execute(
-            """SELECT b.id,b.builty_no,d.do_no,d.customer_name,b.truck_no,b.date,b.qty
+            """SELECT b.id,b.builty_no,d.do_no,d.customer_name,b.truck_no,b.date,b.qty,
+                      COALESCE(b.despatch_weight,b.qty) AS desp,
+                      COALESCE(b.receipt_weight,b.qty) AS rcpt,
+                      COALESCE(b.sale_rate,b.freight_rate,0) AS rate,
+                      COALESCE(b.sale_amount,b.freight_amount,0) AS amount,
+                      d.material,d.from_place,d.to_place
                FROM builtys b JOIN dos d ON d.id=b.do_id
                WHERE b.billed=0 ORDER BY b.id DESC"""
         ):
             self.pb.insert("", "end", values=(
-                r["id"], r["builty_no"], r["do_no"], r["customer_name"],
-                r["truck_no"], r["date"], f'{r["qty"]:.3f}',
+                r["id"], r["do_no"], r["builty_no"], r["date"], r["truck_no"],
+                r["from_place"] or r["material"] or "", f'{r["desp"]:.3f}',
+                f'{r["rcpt"]:.3f}', f'{r["rate"]:.2f}', f'{r["amount"]:.2f}',
             ))
         con.close()
         self.update_selected_total()
