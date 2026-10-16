@@ -118,9 +118,21 @@ def parse_pdf(path):
         data["uom"] = schedule_rows[0]["uom"]
         data["unit_price"] = schedule_rows[0]["unit_price"]
         data["extended_price"] = sum(r["extended_price"] for r in schedule_rows)
-        # Prefer the clean item name from the schedule table over mis-extracted description text.
-        # Examples: MATA NO MADH 'A' GRADE or BHAVNAGAR 'A' GRADE.
-        data["material"] = schedule_rows[0]["item"] or data["material"]
+        # Extract only the material label, never the adjacent tax/schedule/PDF text.
+        material_match = re.search(
+            r"\b(MATA\s+NO\s+MADH\s+'?A'?\s+GRADE|BHAVNAGAR\s+'?A'?\s+GRADE)\b",
+            text, re.I)
+        clean_material = _clean(material_match.group(1)).upper() if material_match else ""
+        if clean_material:
+            clean_material = re.sub(r"\s+", " ", clean_material)
+            clean_material = re.sub(r"\bA\s+GRADE\b", "'A' GRADE", clean_material)
+        else:
+            candidate = _clean(schedule_rows[0]["item"])
+            if len(candidate) <= 55 and not re.search(
+                r"Whether Tax Payable|Schedule Date|Transporter Code|Transporter Name|Extended Price|ORDER TOTAL|Qty:",
+                candidate, re.I):
+                clean_material = candidate
+        data["material"] = clean_material or _field_only(data.get("material"), 55)
     else:
         data["qty"] = _num(grab(r"\bTotal Qty\s*[: ]+([0-9,]+(?:\.[0-9]+)?)"))
     return data
