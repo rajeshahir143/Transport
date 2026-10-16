@@ -227,95 +227,129 @@ def generate_builty_pdf(out_path, firm, builty, do_row, copy_label="CONSIGNOR CO
     return str(out_path)
 
 def generate_bill_pdf(out_path, firm, bill, builties):
-    """firm as above; bill: dict row from bills; builties: list of dict rows."""
-    doc = SimpleDocTemplate(
-        str(out_path), pagesize=A4,
-        leftMargin=15 * mm, rightMargin=15 * mm,
-        topMargin=12 * mm, bottomMargin=12 * mm,
-    )
-    story = []
-    bill_type = bill.get("bill_type", "MATERIAL").upper()
-    label = "TAX INVOICE — MATERIAL" if bill_type == "MATERIAL" else "DEBIT NOTE — FREIGHT"
-    story.append(_header(
-        firm.get("name", "RADHE RADHE DEVELOPER"),
-        f"{firm.get('address','')} &nbsp;|&nbsp; GSTIN: {firm.get('gstin','')} &nbsp;|&nbsp; Phone: {firm.get('phone','')}",
-        label,
-    ))
-    story.append(Spacer(1, 4))
-    story.append(_kv_row([
-        ("Bill No", bill.get("bill_no", "")),
-        ("Date", bill.get("bill_date", "")),
-        ("Customer", bill.get("customer_name", "")),
-    ], col_widths=[20 * mm, 30 * mm, 16 * mm, 30 * mm, 26 * mm, 58 * mm]))
-    story.append(Spacer(1, 4))
+    """Create a printable final bill PDF with Builty-wise weights, rates and amounts."""
+    doc = SimpleDocTemplate(str(out_path), pagesize=A4,
+        leftMargin=8*mm, rightMargin=8*mm, topMargin=8*mm, bottomMargin=9*mm)
+    normal = ParagraphStyle("FinalBillNormal", parent=CELL, fontSize=7.5, leading=9)
+    bold = ParagraphStyle("FinalBillBold", parent=normal, fontName="Helvetica-Bold")
+    title = ParagraphStyle("FinalBillTitle", parent=normal, fontName="Helvetica-Bold",
+                           fontSize=16, leading=19, alignment=1)
+    subtitle = ParagraphStyle("FinalBillSubtitle", parent=normal, fontName="Helvetica-Bold",
+                             fontSize=10, leading=12, alignment=1)
+    center = ParagraphStyle("FinalBillCenter", parent=normal, alignment=1)
+    right = ParagraphStyle("FinalBillRight", parent=normal, alignment=2)
+    def para(value, style=normal):
+        return Paragraph(_safe(str(value if value is not None else ""), 300), style)
+    def num(value):
+        try: return float(value or 0)
+        except (ValueError, TypeError): return 0.0
+    def money(value): return f"{num(value):,.2f}"
+    def wt(value): return f"{num(value):,.3f}"
 
-    # Items table (one line per builty)
-    header = [
-        Paragraph("<b>#</b>", BOLD),
-        Paragraph("<b>Builty No</b>", BOLD),
-        Paragraph("<b>Date</b>", BOLD),
-        Paragraph("<b>Truck</b>", BOLD),
-        Paragraph("<b>DO No</b>", BOLD),
-        Paragraph("<b>Qty (TON)</b>", BOLD),
+    bill_type = str(bill.get("bill_type") or "MATERIAL").upper()
+    invoice_label = "FINAL BILL / TAX INVOICE" if bill_type == "MATERIAL" else "DEBIT NOTE — FREIGHT"
+    firm_name = firm.get("name") or "MANSI COAL CARRIER"
+    story = [
+        para(firm_name.upper(), title),
+        para("LIGNITE SUPPLIER & COMMISSION AGENT", subtitle),
+        Spacer(1, 5),
     ]
-    rows = [header]
-    for i, b in enumerate(builties, 1):
+    details = Table([
+        [para("Bill No. :", bold), para(bill.get("bill_no") or "", bold),
+         para("Invoice Date :", bold), para(bill.get("bill_date") or "", bold),
+         para("Due Date :", bold), para(bill.get("due_date") or "", bold)],
+        [para("Party Name :", bold), para(bill.get("customer_name") or bill.get("party_name") or ""),
+         para("Customer GSTIN :", bold), para(bill.get("customer_gstin") or ""),
+         para("GST Paid By :", bold), para(bill.get("gst_paid_by") or "")],
+        [para("DO No. :", bold), para(bill.get("do_no") or ""),
+         para("Item Name :", bold), para(bill.get("item_name") or (builties[0].get("material", "") if builties else "")),
+         para("Mines Name :", bold), para(bill.get("mines_name") or (builties[0].get("from_place", "") if builties else ""))],
+        [para("Invoice Type :", bold), para(invoice_label, bold),
+         para("Period From :", bold), para(bill.get("period_from") or ""),
+         para("Period To :", bold), para(bill.get("period_to") or "")],
+    ], colWidths=[22*mm, 39*mm, 24*mm, 39*mm, 22*mm, 32*mm])
+    details.setStyle(TableStyle([
+        ("BOX",(0,0),(-1,-1),0.6,LINE), ("INNERGRID",(0,0),(-1,-1),0.3,LINE),
+        ("VALIGN",(0,0),(-1,-1),"MIDDLE"), ("LEFTPADDING",(0,0),(-1,-1),3),
+        ("RIGHTPADDING",(0,0),(-1,-1),3), ("TOPPADDING",(0,0),(-1,-1),4),
+        ("BOTTOMPADDING",(0,0),(-1,-1),4),
+    ]))
+    story.extend([details, Spacer(1, 6)])
+
+    headings = ["#", "Date", "Builty No.", "DO No.", "Vehicle No.",
+                "Mines", "Desp. Wt.", "Rcpt. Wt.", "Rate Rs.", "Amount Rs."]
+    rows = [[para(h, bold) for h in headings]]
+    total_desp = total_rcpt = total_amount = 0.0
+    for i, item in enumerate(builties, 1):
+        desp = num(item.get("despatch_weight") or item.get("qty"))
+        rcpt = num(item.get("receipt_weight") or item.get("qty"))
+        rate = num(item.get("sale_rate") or item.get("rate_per_ton"))
+        amount = num(item.get("sale_amount"))
+        if amount <= 0:
+            amount = min(desp, rcpt) * rate
+        total_desp += desp
+        total_rcpt += rcpt
+        total_amount += amount
         rows.append([
-            str(i),
-            b.get("builty_no", ""),
-            b.get("date", ""),
-            b.get("truck_no", ""),
-            b.get("do_no", ""),
-            f"{float(b.get('qty') or 0):.3f}",
+            para(i, center), para(item.get("date") or "", center),
+            para(item.get("builty_no") or "", center), para(item.get("do_no") or "", center),
+            para(item.get("truck_no") or "", center), para(item.get("from_place") or "", center),
+            para(wt(desp), right), para(wt(rcpt), right), para(money(rate), right),
+            para(money(amount), right),
         ])
-    item_tbl = Table(rows, colWidths=[10 * mm, 28 * mm, 24 * mm, 28 * mm, 32 * mm, 28 * mm])
+    rows.append([
+        para("", bold), para("", bold), para("TOTAL", bold), para("", bold), para("", bold),
+        para("", bold), para(wt(total_desp), bold), para(wt(total_rcpt), bold),
+        para("", bold), para(money(total_amount), bold),
+    ])
+    widths = [7*mm, 17*mm, 22*mm, 21*mm, 25*mm, 19*mm, 19*mm, 19*mm, 19*mm, 23*mm]
+    item_tbl = Table(rows, colWidths=widths, repeatRows=1, hAlign="LEFT")
     item_tbl.setStyle(TableStyle([
-        ("BOX", (0, 0), (-1, -1), 0.6, LINE),
-        ("INNERGRID", (0, 0), (-1, -1), 0.3, LINE),
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F3E8E8")),
-        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-        ("ALIGN", (-1, 1), (-1, -1), "RIGHT"),
+        ("BOX",(0,0),(-1,-1),0.6,LINE), ("INNERGRID",(0,0),(-1,-1),0.3,LINE),
+        ("BACKGROUND",(0,0),(-1,0),colors.HexColor("#EAEAEA")),
+        ("BACKGROUND",(0,-1),(-1,-1),colors.HexColor("#F3E8E8")),
+        ("VALIGN",(0,0),(-1,-1),"MIDDLE"), ("LEFTPADDING",(0,0),(-1,-1),2),
+        ("RIGHTPADDING",(0,0),(-1,-1),2), ("TOPPADDING",(0,0),(-1,-1),4),
+        ("BOTTOMPADDING",(0,0),(-1,-1),4),
     ]))
-    story.append(item_tbl)
-    story.append(Spacer(1, 6))
+    story.extend([item_tbl, Spacer(1, 6)])
 
-    # Totals
-    qty = float(bill.get("total_qty") or 0)
-    rate = float(bill.get("rate_per_ton") or 0)
-    sub = float(bill.get("subtotal") or (qty * rate))
-    cgst = float(bill.get("cgst") or 0)
-    sgst = float(bill.get("sgst") or 0)
-    igst = float(bill.get("igst") or 0)
-    total = float(bill.get("total") or (sub + cgst + sgst + igst))
+    qty = num(bill.get("total_qty"))
+    rate = num(bill.get("rate_per_ton"))
+    subtotal = num(bill.get("subtotal")) or qty * rate
+    cgst, sgst, igst = num(bill.get("cgst")), num(bill.get("sgst")), num(bill.get("igst"))
+    round_off = num(bill.get("round_off"))
+    total = num(bill.get("total")) or subtotal + cgst + sgst + igst + round_off
     totals = Table([
-        ["Total Qty", f"{qty:.3f} TON"],
-        ["Rate / TON", f"{rate:.2f}"],
-        ["Subtotal", f"{sub:.2f}"],
-        ["CGST", f"{cgst:.2f}"],
-        ["SGST", f"{sgst:.2f}"],
-        ["IGST", f"{igst:.2f}"],
-        [Paragraph("<b>Grand Total</b>", BOLD), Paragraph(f"<b>{total:.2f}</b>", BOLD)],
-    ], colWidths=[60 * mm, 40 * mm], hAlign="RIGHT")
+        [para("No. of Builties", bold), para(len(builties), right),
+         para("Despatch Weight", bold), para(wt(total_desp), right),
+         para("Receipt Weight", bold), para(wt(total_rcpt), right)],
+        [para("Bill Weight (TON)", bold), para(wt(qty), right),
+         para("Rate / TON", bold), para(money(rate), right),
+         para("Gross Amount Rs.", bold), para(money(subtotal), right)],
+        [para("CGST Rs.", bold), para(money(cgst), right),
+         para("SGST Rs.", bold), para(money(sgst), right),
+         para("IGST Rs.", bold), para(money(igst), right)],
+        [para("Round Off Rs.", bold), para(money(round_off), right),
+         para("Remarks", bold), para(bill.get("remarks") or "", normal),
+         para("NET AMOUNT Rs.", bold), para(money(total), bold)],
+    ], colWidths=[27*mm, 25*mm, 27*mm, 25*mm, 28*mm, 39*mm])
     totals.setStyle(TableStyle([
-        ("BOX", (0, 0), (-1, -1), 0.6, LINE),
-        ("INNERGRID", (0, 0), (-1, -1), 0.3, LINE),
-        ("ALIGN", (-1, 0), (-1, -1), "RIGHT"),
-        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#F3E8E8")),
+        ("BOX",(0,0),(-1,-1),0.6,LINE), ("INNERGRID",(0,0),(-1,-1),0.3,LINE),
+        ("VALIGN",(0,0),(-1,-1),"MIDDLE"), ("LEFTPADDING",(0,0),(-1,-1),3),
+        ("RIGHTPADDING",(0,0),(-1,-1),3), ("TOPPADDING",(0,0),(-1,-1),5),
+        ("BOTTOMPADDING",(0,0),(-1,-1),5), ("BACKGROUND",(4,3),(5,3),colors.HexColor("#F3E8E8")),
     ]))
-    story.append(totals)
-    story.append(Spacer(1, 18))
-
+    story.extend([totals, Spacer(1, 18)])
     sig = Table([
-        ["Receiver's Signature", "", "For " + firm.get("name", "RADHE RADHE DEVELOPER")],
+        [para("Receiver's Signature"), "", para("For " + firm_name, bold)],
         ["", "", ""],
-        ["", "", "Authorised Signatory"],
-    ], colWidths=[70 * mm, 40 * mm, 70 * mm])
+        ["", "", para("Authorised Signatory", bold)],
+    ], colWidths=[60*mm, 50*mm, 60*mm])
     sig.setStyle(TableStyle([
-        ("LINEABOVE", (0, 2), (0, 2), 0.5, INK),
-        ("LINEABOVE", (2, 2), (2, 2), 0.5, INK),
-        ("ALIGN", (2, 0), (2, -1), "RIGHT"),
+        ("LINEABOVE",(0,2),(0,2),0.5,INK), ("LINEABOVE",(2,2),(2,2),0.5,INK),
+        ("ALIGN",(2,0),(2,-1),"RIGHT"), ("TOPPADDING",(0,0),(-1,-1),4),
     ]))
     story.append(sig)
-
     doc.build(story)
     return str(out_path)
