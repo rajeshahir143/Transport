@@ -8,6 +8,7 @@ Workflow:
 Data is stored locally in radhe_radhe.db next to this script.
 """
 import os
+import csv
 from datetime import datetime
 import platform
 import subprocess
@@ -94,6 +95,7 @@ class App(tk.Tk):
         self.freight_paid_tab(nb)
         self.debit_note_tab(nb)
         self.rate_tab(nb)
+        self.export_tab(nb)
 
     # ===================== DO TAB =====================
     def do_tab(self, nb):
@@ -1202,6 +1204,92 @@ class App(tk.Tk):
                 open_file(out)
         self.refresh_bill()
         self.refresh_builty()
+
+    # ===================== DATE-WISE EXPORT =====================
+    def export_tab(self, nb):
+        f = ttk.Frame(nb, padding=12)
+        nb.add(f, text="7 · Date-wise Export")
+        ttk.Label(f, text="Export DO, Builty and Bill records by date range",
+                  style="Title.TLabel").pack(anchor="w", pady=(0, 8))
+        dates = ttk.LabelFrame(f, text="Date Range", padding=8)
+        dates.pack(fill="x", pady=5)
+        self.export_from = tk.StringVar(value="01/01/2000")
+        self.export_to = tk.StringVar(value=datetime.now().strftime("%d/%m/%y"))
+        ttk.Label(dates, text="From Date (DD/MM/YY)").grid(row=0, column=0, padx=5, pady=5, sticky="w")
+        ttk.Entry(dates, textvariable=self.export_from, width=16).grid(row=0, column=1, padx=5, pady=5)
+        ttk.Label(dates, text="To Date (DD/MM/YY)").grid(row=0, column=2, padx=5, pady=5, sticky="w")
+        ttk.Entry(dates, textvariable=self.export_to, width=16).grid(row=0, column=3, padx=5, pady=5)
+        ttk.Label(f, text="Select an export below. Each export includes all matching records in the selected date range.",
+                  wraplength=900).pack(anchor="w", pady=8)
+        buttons = ttk.Frame(f)
+        buttons.pack(anchor="w", pady=5)
+        ttk.Button(buttons, text="Export DOs to CSV", command=lambda: self.export_datewise("do")).grid(row=0, column=0, padx=5, pady=5)
+        ttk.Button(buttons, text="Export Builties to CSV", command=lambda: self.export_datewise("builty")).grid(row=0, column=1, padx=5, pady=5)
+        ttk.Button(buttons, text="Export Bills to CSV", command=lambda: self.export_datewise("bill")).grid(row=0, column=2, padx=5, pady=5)
+        ttk.Button(buttons, text="Export ALL (DO + Builty + Bills)", command=lambda: self.export_datewise("all")).grid(row=1, column=0, columnspan=3, padx=5, pady=8, sticky="ew")
+
+    def _parse_export_date(self, value):
+        value = str(value or "").strip()
+        for fmt in ("%d/%m/%y", "%d/%m/%Y", "%Y-%m-%d", "%d-%m-%y", "%d-%m-%Y", "%d-%b-%y", "%d-%b-%Y"):
+            try:
+                return datetime.strptime(value, fmt).date()
+            except ValueError:
+                continue
+        return None
+
+    def export_datewise(self, kind):
+        from tkinter import filedialog
+        start = self._parse_export_date(self.export_from.get())
+        end = self._parse_export_date(self.export_to.get())
+        if not start or not end:
+            messagebox.showerror("Date-wise Export", "Enter dates as DD/MM/YY or DD/MM/YYYY.")
+            return
+        if start > end:
+            messagebox.showerror("Date-wise Export", "From Date must be on or before To Date.")
+            return
+        folder = filedialog.askdirectory(title="Choose folder to save date-wise exports")
+        if not folder:
+            return
+        from pathlib import Path as _Path
+        import csv as _csv
+        outdir = _Path(folder)
+        con = db()
+        jobs = []
+        if kind in ("do", "all"):
+            jobs.append(("DOs", "SELECT * FROM dos ORDER BY do_date,id", "do_date"))
+        if kind in ("builty", "all"):
+            jobs.append(("Builties", """SELECT b.*,d.do_no,d.customer_name,d.material,d.from_place AS do_from_place,
+                d.to_place AS do_to_place FROM builtys b JOIN dos d ON d.id=b.do_id ORDER BY b.date,b.id""", "date"))
+        if kind in ("bill", "all"):
+            jobs.append(("Bills", "SELECT * FROM bills ORDER BY bill_date,id", "bill_date"))
+        exported = []
+        try:
+            for label, query, date_col in jobs:
+                rows = [dict(r) for r in con.execute(query)]
+                matching = []
+                for row in rows:
+                    parsed = self._parse_export_date(row.get(date_col))
+                    if parsed and start <= parsed <= end:
+                        matching.append(row)
+                if matching:
+                    fields = list(matching[0].keys())
+                else:
+                    # Preserve useful headers even when the range has no matching rows.
+                    fields = list(rows[0].keys()) if rows else []
+                path = outdir / f"{label}_{start.strftime('%Y%m%d')}_to_{end.strftime('%Y%m%d')}.csv"
+                with open(path, "w", newline="", encoding="utf-8-sig") as fh:
+                    if fields:
+                        writer = _csv.DictWriter(fh, fieldnames=fields, extrasaction="ignore")
+                        writer.writeheader()
+                        writer.writerows(matching)
+                exported.append(f"{label}: {len(matching)} records")
+        except Exception as e:
+            messagebox.showerror("Date-wise Export", str(e))
+            return
+        finally:
+            con.close()
+        messagebox.showinfo("Date-wise Export Complete",
+            "Saved date-wise CSV exports to:\\n" + str(outdir) + "\\n\\n" + "\\n".join(exported))
 
     # ===================== FREIGHT PAID TAB =====================
     def freight_paid_tab(self, nb):
