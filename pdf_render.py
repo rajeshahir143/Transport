@@ -249,6 +249,27 @@ def generate_bill_pdf(out_path, firm, bill, builties):
     bill_type = str(bill.get("bill_type") or "MATERIAL").upper()
     invoice_label = "FINAL BILL / TAX INVOICE" if bill_type == "MATERIAL" else "DEBIT NOTE — FREIGHT"
     firm_name = firm.get("name") or "MANSI COAL CARRIER"
+
+    # Prevent the entire extracted DO PDF text from appearing in a single invoice cell.
+    # The bill should show concise, readable values sourced from the linked Builty rows.
+    def clean_detail(value, fallback=""):
+        value = str(value or "").strip()
+        noisy_markers = ("Whether Tax Payable", "Schedule Date", "Transporter Code",
+                         "Transporter Name:", "Qty:", "Extended Price", "Total Order")
+        if len(value) > 90 or any(marker.lower() in value.lower() for marker in noisy_markers):
+            return str(fallback or "")
+        return value
+
+    first = builties[0] if builties else {}
+    do_numbers = list(dict.fromkeys(str(x.get("do_no") or "").strip() for x in builties if str(x.get("do_no") or "").strip()))
+    detail_do = ", ".join(do_numbers)
+    detail_item = first.get("material") or ""
+    detail_mines = first.get("from_place") or ""
+    party = clean_detail(bill.get("customer_name") or bill.get("party_name"), "")
+    gstin = clean_detail(bill.get("customer_gstin"), "")
+    shown_do = clean_detail(bill.get("do_no"), detail_do) or detail_do
+    shown_item = clean_detail(bill.get("item_name"), detail_item) or detail_item
+    shown_mines = clean_detail(bill.get("mines_name"), detail_mines) or detail_mines
     story = [
         para(firm_name.upper(), title),
         para("LIGNITE SUPPLIER & COMMISSION AGENT", subtitle),
@@ -258,12 +279,12 @@ def generate_bill_pdf(out_path, firm, bill, builties):
         [para("Bill No. :", bold), para(bill.get("bill_no") or "", bold),
          para("Invoice Date :", bold), para(bill.get("bill_date") or "", bold),
          para("Due Date :", bold), para(bill.get("due_date") or "", bold)],
-        [para("Party Name :", bold), para(bill.get("customer_name") or bill.get("party_name") or ""),
-         para("Customer GSTIN :", bold), para(bill.get("customer_gstin") or ""),
+        [para("Party Name :", bold), para(party),
+         para("Customer GSTIN :", bold), para(gstin),
          para("GST Paid By :", bold), para(bill.get("gst_paid_by") or "")],
-        [para("DO No. :", bold), para(bill.get("do_no") or ""),
-         para("Item Name :", bold), para(bill.get("item_name") or (builties[0].get("material", "") if builties else "")),
-         para("Mines Name :", bold), para(bill.get("mines_name") or (builties[0].get("from_place", "") if builties else ""))],
+        [para("DO No. :", bold), para(shown_do),
+         para("Item Name :", bold), para(shown_item),
+         para("Mines Name :", bold), para(shown_mines)],
         [para("Invoice Type :", bold), para(invoice_label, bold),
          para("Period From :", bold), para(bill.get("period_from") or ""),
          para("Period To :", bold), para(bill.get("period_to") or "")],
