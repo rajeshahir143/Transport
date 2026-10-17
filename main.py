@@ -17,7 +17,7 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
-from db import db, init_db, lookup_rate, DB_PATH
+from db import db, init_db, lookup_rate, DB_PATH, list_companies, get_active_company, set_active_company, BASE
 from pdf_parser import parse_pdf
 from pdf_render import generate_builty_pdf, generate_bill_pdf
 
@@ -84,6 +84,12 @@ class App(tk.Tk):
         ttk.Label(top, text="Radhe Radhe Developer", style="Title.TLabel").pack(side="left")
         ttk.Label(top, text="   PDF → DO → Builty → Bill",
                   font=("Segoe UI", 11)).pack(side="left")
+        ttk.Label(top, text="Company:", font=("Segoe UI", 9, "bold")).pack(side="left", padx=(24, 4))
+        self.company_var = tk.StringVar(value=get_active_company())
+        self.company_combo = ttk.Combobox(top, textvariable=self.company_var, values=list_companies(), width=22, state="readonly")
+        self.company_combo.pack(side="left")
+        self.company_combo.bind("<<ComboboxSelected>>", self.switch_company)
+        ttk.Button(top, text="＋ Add Company", command=self.add_company).pack(side="left", padx=5)
         ttk.Label(top, text=f"DB: {DB_PATH.name}",
                   font=("Segoe UI", 9), foreground="#666").pack(side="right")
 
@@ -96,6 +102,55 @@ class App(tk.Tk):
         self.debit_note_tab(nb)
         self.rate_tab(nb)
         self.export_tab(nb)
+        self.swastik_import_tab(nb)
+
+    # ===================== MULTI-COMPANY / SWASTIK IMPORT =====================
+    def add_company(self):
+        from tkinter import simpledialog
+        name = simpledialog.askstring("Add Company", "Enter company name:", parent=self)
+        if not name or not name.strip():
+            return
+        name = name.strip()
+        if name in list_companies():
+            messagebox.showwarning("Add Company", "This company already exists.")
+            return
+        self.company_var.set(name)
+        self.company_combo.configure(values=list_companies() + [name])
+        set_active_company(name)
+        init_db()
+        self.company_combo.configure(values=list_companies())
+        messagebox.showinfo("Company Created", f"Company '{name}' database is ready.")
+        self._restart_app()
+
+    def switch_company(self, _event=None):
+        name = self.company_var.get()
+        if name == get_active_company():
+            return
+        set_active_company(name)
+        init_db()
+        self._restart_app()
+
+    def _restart_app(self):
+        # Rebuild widgets so every list reads from the newly selected company's database.
+        for child in self.winfo_children():
+            child.destroy()
+        self._build()
+
+    def swastik_import_tab(self, nb):
+        f = ttk.Frame(nb, padding=14)
+        nb.add(f, text="8 · SWASTIK Import")
+        ttk.Label(f, text="Import legacy SWASTIK DO, Builty and Bill data",
+                  style="Title.TLabel").pack(anchor="w", pady=(0, 8))
+        ttk.Label(f, text="Import runs only into the currently selected company. A database backup is created first.",
+                  wraplength=900).pack(anchor="w", pady=4)
+        ttk.Label(f, text="Supported source: SWASTIK ZIP containing DBF files (DO1/DO2, BUILTY, BILL1/BILL2).",
+                  wraplength=900).pack(anchor="w", pady=4)
+        ttk.Button(f, text="Select SWASTIK ZIP and Import", command=self.import_swastik_zip).pack(anchor="w", pady=10)
+        self.import_status = ttk.Label(f, text="No import performed yet.", wraplength=1000)
+        self.import_status.pack(anchor="w", pady=8)
+
+    def import_swastik_zip(self):
+        messagebox.showinfo("SWASTIK Import", "Import mapping is being prepared. Please do not import yet; source DBF fields and links must be verified before writing records.")
 
     # ===================== DO TAB =====================
     def do_tab(self, nb):
