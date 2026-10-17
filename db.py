@@ -5,13 +5,49 @@ import sqlite3
 import sys
 from datetime import date
 from pathlib import Path
+import re
 
 # In a PyInstaller one-file EXE, __file__ points inside a temporary extraction
 # folder. Keep the live database beside the EXE so it persists between launches.
 BASE = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
+COMPANIES_DIR = BASE / "Companies"
+COMPANIES_DIR.mkdir(parents=True, exist_ok=True)
+ACTIVE_COMPANY_FILE = BASE / "active_company.txt"
+
+def _safe_company(name):
+    name = re.sub(r"[^A-Za-z0-9 _-]", "", str(name or "")).strip()
+    return name[:60] or "Radhe Radhe Developer"
+
+def list_companies():
+    names = ["Radhe Radhe Developer"]
+    if COMPANIES_DIR.exists():
+        names.extend(p.name for p in COMPANIES_DIR.iterdir() if p.is_dir())
+    return list(dict.fromkeys(names))
+
+def get_active_company():
+    try:
+        name = ACTIVE_COMPANY_FILE.read_text(encoding="utf-8").strip()
+    except OSError:
+        name = "Radhe Radhe Developer"
+    return _safe_company(name)
+
+def set_active_company(name):
+    global DB_PATH, BACKUP_DIR, TEMP_BACKUP_DIR
+    name = _safe_company(name)
+    if name == "Radhe Radhe Developer":
+        DB_PATH = BASE / "radhe_radhe.db"
+    else:
+        DB_PATH = COMPANIES_DIR / name / "radhe_radhe.db"
+        DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    BACKUP_DIR = DB_PATH.parent / "Backup"
+    TEMP_BACKUP_DIR = DB_PATH.parent / "temp"
+    ACTIVE_COMPANY_FILE.write_text(name, encoding="utf-8")
+    return name
+
 DB_PATH = BASE / "radhe_radhe.db"
 BACKUP_DIR = BASE / "Backup"
 TEMP_BACKUP_DIR = BASE / "temp"
+set_active_company(get_active_company())
 
 
 def backup_database():
