@@ -185,18 +185,16 @@ class App(tk.Tk):
     def swastik_import_tab(self, nb):
         f = ttk.Frame(nb, padding=14)
         nb.add(f, text="SWASTIK Import / Backup")
-        ttk.Label(f, text="Import legacy SWASTIK DO, Builty and Bill data",
+        ttk.Label(f, text="Import old SWASTIK data",
                   style="Title.TLabel").pack(anchor="w", pady=(0, 8))
-        ttk.Label(f, text="Import runs only into the currently selected company. A database backup is created first.",
+        ttk.Label(f, text="Click Import, select the old SWASTIK data folder, and confirm. Only DO, Builty and Bill records should be imported.",
                   wraplength=900).pack(anchor="w", pady=4)
-        ttk.Label(f, text="Supported source: SWASTIK ZIP containing DBF files (DO1/DO2, BUILTY, BILL1/BILL2).",
-                  wraplength=900).pack(anchor="w", pady=4)
-        ttk.Button(f, text="Select SWASTIK ZIP and Import", command=self.import_swastik_zip).pack(anchor="w", pady=10)
+        ttk.Button(f, text="Import", command=self.import_swastik_zip).pack(anchor="w", pady=10)
         backup_row = ttk.Frame(f)
         backup_row.pack(anchor="w", pady=8)
         ttk.Button(backup_row, text="Restore Database Backup", command=self.restore_backup).pack(side="left", padx=(0, 8))
         ttk.Button(backup_row, text="Create Backup Now", command=self.create_backup_now).pack(side="left")
-        self.import_status = ttk.Label(f, text="No import performed yet.", wraplength=1000)
+        self.import_status = ttk.Label(f, text="Choose a SWASTIK folder to begin.", wraplength=1000)
         self.import_status.pack(anchor="w", pady=8)
 
     def create_backup_now(self):
@@ -223,7 +221,14 @@ class App(tk.Tk):
             messagebox.showerror("Restore Backup", f"Restore failed; current data was not intentionally overwritten.\n{exc}")
 
     def import_swastik_zip(self):
-        messagebox.showinfo("SWASTIK Import", "Import mapping is being prepared. Please do not import yet; source DBF fields and links must be verified before writing records.")
+        folder = filedialog.askdirectory(title="Select old SWASTIK data folder", mustexist=True)
+        if not folder:
+            return
+        self.import_status.configure(text=f"Selected folder: {folder}")
+        messagebox.showwarning(
+            "SWASTIK Import",
+            "Folder selected. Automatic import is not enabled yet because the DBF table/field mapping and DO → Builty → Bill links have not been verified. No data was changed."
+        )
 
     # ===================== DO TAB =====================
     def do_tab(self, nb):
