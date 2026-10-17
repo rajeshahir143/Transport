@@ -199,11 +199,26 @@ def generate_builty_pdf(out_path, firm, builty, do_row, copy_label="CONSIGNOR CO
     cgst_rate = float(val(builty, "cgst_rate", 0) or 0)
     sgst_rate = float(val(builty, "sgst_rate", 0) or 0)
     freight = float(val(builty, "freight_amount", 0) or 0)
-    gst_rows = [
-        [P(f"Truck No. :       {truck}<br/>Driver's Name :    {driver}<br/>Address :          {address}<br/>Truck Owner Name : {owner}<br/>Mobile No. :       {mobile}"),
-         P(f"CGST  {cgst_rate:.2f}%<br/>SGST  {sgst_rate:.2f}%<br/>Total :", small),
-         P(f"{freight * cgst_rate / 100:.2f}<br/>{freight * sgst_rate / 100:.2f}<br/>{freight * (cgst_rate + sgst_rate) / 100:.2f}", right)]
-    ]
+    # Escape user/PDF-derived values individually, but keep ReportLab <br/> tags as real line breaks.
+    truck_details = Paragraph(
+        "Truck No. : " + _safe(truck, 80) +
+        "<br/>Driver's Name : " + _safe(driver, 100) +
+        "<br/>Address : " + _safe(address, 160) +
+        "<br/>Truck Owner Name : " + _safe(owner, 100) +
+        "<br/>Mobile No. : " + _safe(mobile, 40),
+        small,
+    )
+    gst_labels = Paragraph(
+        f"CGST {cgst_rate:.2f}%<br/>SGST {sgst_rate:.2f}%<br/>Total :",
+        small,
+    )
+    gst_values = Paragraph(
+        f"{freight * cgst_rate / 100:.2f}<br/>"
+        f"{freight * sgst_rate / 100:.2f}<br/>"
+        f"{freight * (cgst_rate + sgst_rate) / 100:.2f}",
+        right,
+    )
+    gst_rows = [[truck_details, gst_labels, gst_values]]
     details = Table(gst_rows, colWidths=[126*mm, 42*mm, 34*mm], rowHeights=[29*mm])
     details.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.65,colors.black),("INNERGRID",(0,0),(-1,-1),0.45,colors.black),
