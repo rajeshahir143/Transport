@@ -102,7 +102,53 @@ class App(tk.Tk):
         self.debit_note_tab(nb)
         self.rate_tab(nb)
         self.export_tab(nb)
+        self.dashboard_tab(nb)
         self.swastik_import_tab(nb)
+
+    # ===================== DASHBOARD =====================
+    def dashboard_tab(self, nb):
+        f = ttk.Frame(nb, padding=14)
+        nb.add(f, text="Dashboard")
+        ttk.Label(f, text="Company Dashboard", style="Title.TLabel").pack(anchor="w", pady=(0, 8))
+        ttk.Label(f, text="Summary for the currently selected company database.").pack(anchor="w")
+        cards = ttk.Frame(f)
+        cards.pack(fill="x", pady=14)
+        self.dashboard_values = {}
+        metrics = [
+            ("do_count", "Total DOs"), ("pending_ton", "Pending TON"),
+            ("builty_count", "Total Builty"), ("unbilled_count", "Unbilled Builty"),
+            ("bill_count", "Total Bills"), ("bill_total", "Bill Total (Rs.)"),
+            ("commission", "Commission (Rs.)"), ("driver_payable", "Driver Payable (Rs.)"),
+        ]
+        for i, (key, label) in enumerate(metrics):
+            box = ttk.LabelFrame(cards, text=label, padding=12)
+            box.grid(row=i//4, column=i%4, sticky="nsew", padx=5, pady=5)
+            val = ttk.Label(box, text="—", font=("Segoe UI", 16, "bold"))
+            val.pack(anchor="w")
+            self.dashboard_values[key] = val
+            cards.columnconfigure(i%4, weight=1)
+        ttk.Button(f, text="Refresh Dashboard", command=self.refresh_dashboard).pack(anchor="w", pady=8)
+        self.refresh_dashboard()
+
+    def refresh_dashboard(self):
+        try:
+            with db() as con:
+                values = {
+                    "do_count": con.execute("SELECT COUNT(*) FROM dos").fetchone()[0],
+                    "pending_ton": con.execute("SELECT COALESCE(SUM(remaining_qty),0) FROM dos").fetchone()[0],
+                    "builty_count": con.execute("SELECT COUNT(*) FROM builtys").fetchone()[0],
+                    "unbilled_count": con.execute("SELECT COUNT(*) FROM builtys WHERE billed=0").fetchone()[0],
+                    "bill_count": con.execute("SELECT COUNT(*) FROM bills").fetchone()[0],
+                    "bill_total": con.execute("SELECT COALESCE(SUM(total),0) FROM bills").fetchone()[0],
+                    "commission": con.execute("SELECT COALESCE(SUM(commission),0) FROM builtys").fetchone()[0],
+                    "driver_payable": con.execute("SELECT COALESCE(SUM(driver_payable),0) FROM builtys").fetchone()[0],
+                }
+            for key, value in values.items():
+                label = self.dashboard_values.get(key)
+                if label:
+                    label.configure(text=f"{value:,.2f}" if key in ("pending_ton","bill_total","commission","driver_payable") else f"{value:,}")
+        except Exception as exc:
+            messagebox.showerror("Dashboard", f"Could not refresh dashboard:\n{exc}")
 
     # ===================== MULTI-COMPANY / SWASTIK IMPORT =====================
     def add_company(self):
@@ -138,7 +184,7 @@ class App(tk.Tk):
 
     def swastik_import_tab(self, nb):
         f = ttk.Frame(nb, padding=14)
-        nb.add(f, text="8 · SWASTIK Import")
+        nb.add(f, text="SWASTIK Import / Backup")
         ttk.Label(f, text="Import legacy SWASTIK DO, Builty and Bill data",
                   style="Title.TLabel").pack(anchor="w", pady=(0, 8))
         ttk.Label(f, text="Import runs only into the currently selected company. A database backup is created first.",
@@ -146,8 +192,35 @@ class App(tk.Tk):
         ttk.Label(f, text="Supported source: SWASTIK ZIP containing DBF files (DO1/DO2, BUILTY, BILL1/BILL2).",
                   wraplength=900).pack(anchor="w", pady=4)
         ttk.Button(f, text="Select SWASTIK ZIP and Import", command=self.import_swastik_zip).pack(anchor="w", pady=10)
+        backup_row = ttk.Frame(f)
+        backup_row.pack(anchor="w", pady=8)
+        ttk.Button(backup_row, text="Restore Database Backup", command=self.restore_backup).pack(side="left", padx=(0, 8))
+        ttk.Button(backup_row, text="Create Backup Now", command=self.create_backup_now).pack(side="left")
         self.import_status = ttk.Label(f, text="No import performed yet.", wraplength=1000)
         self.import_status.pack(anchor="w", pady=8)
+
+    def create_backup_now(self):
+        try:
+            from db import backup_database
+            backup_database()
+            messagebox.showinfo("Backup", "Backup created in the active company's Backup and temp folders.")
+        except Exception as exc:
+            messagebox.showerror("Backup", str(exc))
+
+    def restore_backup(self):
+        from db import restore_database
+        path = filedialog.askopenfilename(title="Select SQLite backup", filetypes=[("SQLite database", "*.db"), ("All files", "*.*")])
+        if not path:
+            return
+        if not messagebox.askyesno("Restore Backup", "Restore this backup into the currently selected company? The current database will be copied to a safety file first."):
+            return
+        try:
+            restore_database(path)
+            init_db()
+            messagebox.showinfo("Restore Backup", "Backup restored. The app will refresh now.")
+            self._restart_app()
+        except Exception as exc:
+            messagebox.showerror("Restore Backup", f"Restore failed; current data was not intentionally overwritten.\n{exc}")
 
     def import_swastik_zip(self):
         messagebox.showinfo("SWASTIK Import", "Import mapping is being prepared. Please do not import yet; source DBF fields and links must be verified before writing records.")
