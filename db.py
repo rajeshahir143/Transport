@@ -251,3 +251,25 @@ def lookup_rate(from_place, to_place, material):
     ).fetchone()
     con.close()
     return float(row["rate_per_ton"]) if row else 0.0
+
+
+def restore_database(backup_path):
+    """Restore a SQLite backup after validating it and saving the current database."""
+    import shutil
+    source = Path(backup_path)
+    if not source.is_file():
+        raise FileNotFoundError(str(source))
+    test = sqlite3.connect(str(source))
+    try:
+        result = test.execute("PRAGMA quick_check").fetchone()
+        if not result or result[0] != "ok":
+            raise ValueError("Selected file is not a valid SQLite database backup.")
+    finally:
+        test.close()
+    if DB_PATH.exists():
+        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        safety = DB_PATH.with_name(DB_PATH.stem + "_before_restore_" + stamp + DB_PATH.suffix)
+        shutil.copy2(DB_PATH, safety)
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, DB_PATH)
+    return DB_PATH
