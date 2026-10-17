@@ -3,7 +3,7 @@ SQLite file is stored next to the executable so data stays on the local computer
 """
 import sqlite3
 import sys
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 import re
 
