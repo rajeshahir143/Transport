@@ -221,14 +221,55 @@ class App(tk.Tk):
             messagebox.showerror("Restore Backup", f"Restore failed; current data was not intentionally overwritten.\n{exc}")
 
     def import_swastik_zip(self):
+        """Inspect a legacy SWASTIK folder safely before any data is written."""
+        import os
+        import struct
+        from collections import Counter
+
         folder = filedialog.askdirectory(title="Select old SWASTIK data folder", mustexist=True)
         if not folder:
             return
-        self.import_status.configure(text=f"Selected folder: {folder}")
-        messagebox.showwarning(
-            "SWASTIK Import",
-            "Folder selected. Automatic import is not enabled yet because the DBF table/field mapping and DO → Builty → Bill links have not been verified. No data was changed."
-        )
+
+        dbf_files = []
+        for root, _dirs, files in os.walk(folder):
+            for filename in files:
+                if filename.lower().endswith(".dbf"):
+                    path = os.path.join(root, filename)
+                    records = None
+                    try:
+                        with open(path, "rb") as stream:
+                            header = stream.read(32)
+                        if len(header) >= 8:
+                            records = struct.unpack("<I", header[4:8])[0]
+                    except (OSError, struct.error):
+                        pass
+                    dbf_files.append({
+                        "path": path,
+                        "relative": os.path.relpath(path, folder),
+                        "name": filename.upper(),
+                        "records": records,
+                    })
+
+        if not dbf_files:
+            self.import_status.configure(text="No .DBF files found in selected folder.")
+            messagebox.showerror("SWASTIK Import", "No DBF files were found. Select the folder that contains the old SWASTIK data.")
+            return
+
+        # Show a safe inventory. Header counts can include deleted rows; this is
+        # deliberately not presented as a completed import.
+        by_name = Counter()
+        for item in dbf_files:
+            by_name[item["name"]] += item["records"] or 0
+        summary = [
+            f"DBF files found: {len(dbf_files)}",
+            "Record counts below are DBF header counts (may include deleted records):",
+        ]
+        for name, count in sorted(by_name.items()):
+            summary.append(f"  {name}: {count:,}")
+        summary.append("")
+        summary.append("No records have been imported yet. Import is stopped safely until the source field mapping and DO → Builty → Bill links are verified.")
+        self.import_status.configure(text="\n".join(summary))
+        messagebox.showinfo("SWASTIK data scan", "\n".join(summary))
 
     # ===================== DO TAB =====================
     def do_tab(self, nb):
