@@ -178,7 +178,7 @@ def generate_builty_pdf(out_path, firm, builty, do_row, copy_label="CONSIGNOR CO
         desc = (str(desc) + "    " + str(to_place)).strip()
     # Sample layout: Description / Weight / Freight / To Pay / Paid Amount
     goods = Table([
-        [P("D e s c r i p t i o n", bold), P("Weight", bold), P("Freight", bold), P("To Pay /<br/>Paid Amount", bold)],
+        [P("D e s c r i p t i o n", bold), P("Weight", bold), P("Freight", bold), Paragraph("To Pay /<br/>Paid Amount", bold)],
         [P(desc, bold), P(f"{float(val(builty, 'qty', 0) or 0):.3f}", center),
          P(f"{float(val(builty, 'freight_amount', 0) or 0):.2f}" if float(val(builty, 'freight_amount', 0) or 0) else "", center),
          P("To Be Billed", center)]
