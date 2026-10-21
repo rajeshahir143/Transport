@@ -127,9 +127,9 @@ def backup_database():
     try:
         fd, temp_name = tempfile.mkstemp(prefix=daily_sql.name + ".", suffix=".tmp", dir=str(BASE))
         try:
-            with os.fdopen(fd, "w", encoding="utf-8", newline="\\n") as stream:
+            with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as stream:
                 for line in source.iterdump():
-                    stream.write(line + "\\n")
+                    stream.write(line + "\n")
             _validate_sql_dump(temp_name)
             os.replace(temp_name, daily_sql)
         finally:
