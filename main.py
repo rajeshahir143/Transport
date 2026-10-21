@@ -1246,30 +1246,69 @@ class App(tk.Tk):
         actions.pack(fill="x")
         ttk.Button(actions, text="Refresh", command=self.refresh_bill).pack(side="left")
         ttk.Button(actions, text="Create Bill & Print PDF", command=self.create_bill).pack(side="right")
+        self._bill_db_signature = None
         self.refresh_bill()
+        self.after(2500, self._auto_refresh_bill)
+
+    def _bill_pending_signature(self):
+        con = db()
+        try:
+            rows = con.execute(
+                """SELECT b.id,b.builty_no,b.do_id,b.truck_no,b.date,b.qty,
+                          b.despatch_weight,b.receipt_weight,b.sale_rate,b.sale_amount,
+                          b.freight_rate,b.freight_amount,b.billed,
+                          d.do_no,d.customer_name,d.material,d.from_place,d.to_place
+                   FROM builtys b JOIN dos d ON d.id=b.do_id
+                   WHERE b.billed=0 ORDER BY b.id DESC"""
+            ).fetchall()
+            return tuple(tuple(row) for row in rows)
+        finally:
+            con.close()
+
+    def _auto_refresh_bill(self):
+        # Detect changes saved from DO/Builty screens and refresh without a manual click.
+        try:
+            if hasattr(self, "pb"):
+                signature = self._bill_pending_signature()
+                if signature != self._bill_db_signature:
+                    self.refresh_bill()
+        except Exception:
+            pass
+        finally:
+            try:
+                self.after(2500, self._auto_refresh_bill)
+            except Exception:
+                pass
 
     def refresh_bill(self):
         if not hasattr(self, "pb"):
             return
+        selected_ids = {str(self.pb.item(i)["values"][0]) for i in self.pb.selection()}
         for x in self.pb.get_children():
             self.pb.delete(x)
         con = db()
-        for r in con.execute(
-            """SELECT b.id,b.builty_no,d.do_no,d.customer_name,b.truck_no,b.date,b.qty,
-                      COALESCE(b.despatch_weight,b.qty) AS desp,
-                      COALESCE(b.receipt_weight,b.qty) AS rcpt,
-                      COALESCE(b.sale_rate,b.freight_rate,0) AS rate,
-                      COALESCE(b.sale_amount,b.freight_amount,0) AS amount,
-                      d.material,d.from_place,d.to_place
-               FROM builtys b JOIN dos d ON d.id=b.do_id
-               WHERE b.billed=0 ORDER BY b.id DESC"""
-        ):
-            self.pb.insert("", "end", values=(
-                r["id"], r["do_no"], r["builty_no"], r["date"], r["truck_no"],
-                r["from_place"] or r["material"] or "", f'{r["desp"]:.3f}',
-                f'{r["rcpt"]:.3f}', f'{r["rate"]:.2f}', f'{r["amount"]:.2f}',
-            ))
-        con.close()
+        try:
+            rows = con.execute(
+                """SELECT b.id,b.builty_no,d.do_no,d.customer_name,b.truck_no,b.date,b.qty,
+                          COALESCE(b.despatch_weight,b.qty) AS desp,
+                          COALESCE(b.receipt_weight,b.qty) AS rcpt,
+                          COALESCE(b.sale_rate,b.freight_rate,0) AS rate,
+                          COALESCE(b.sale_amount,b.freight_amount,0) AS amount,
+                          d.material,d.from_place,d.to_place
+                   FROM builtys b JOIN dos d ON d.id=b.do_id
+                   WHERE b.billed=0 ORDER BY b.id DESC"""
+            ).fetchall()
+            self._bill_db_signature = self._bill_pending_signature()
+            for r in rows:
+                iid = self.pb.insert("", "end", values=(
+                    r["id"], r["do_no"], r["builty_no"], r["date"], r["truck_no"],
+                    r["from_place"] or r["material"] or "", f'{r["desp"]:.3f}',
+                    f'{r["rcpt"]:.3f}', f'{r["rate"]:.2f}', f'{r["amount"]:.2f}',
+                ))
+                if str(r["id"]) in selected_ids:
+                    self.pb.selection_add(iid)
+        finally:
+            con.close()
         self.update_selected_total()
 
     def update_selected_total(self, _e=None):
