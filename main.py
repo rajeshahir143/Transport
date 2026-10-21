@@ -65,6 +65,8 @@ class App(tk.Tk):
         init_db()
         self._style()
         self._build()
+        # init_db creates a startup backup; refresh latest copies hourly while app stays open.
+        self.after(60 * 60 * 1000, self._automatic_backup_tick)
 
     # ---------- styling ----------
     def _style(self):
@@ -191,9 +193,9 @@ class App(tk.Tk):
         ttk.Button(f, text="Import", command=self.import_swastik_zip).pack(anchor="w", pady=10)
         backup_row = ttk.Frame(f)
         backup_row.pack(anchor="w", pady=8)
-        ttk.Button(backup_row, text="Restore Database Backup", command=self.restore_backup).pack(side="left", padx=(0, 8))
+        ttk.Button(backup_row, text="Restore Database Backup (.db / .sql)", command=self.restore_backup).pack(side="left", padx=(0, 8))
         ttk.Button(backup_row, text="Create Backup Now", command=self.create_backup_now).pack(side="left")
-        self.import_status = ttk.Label(f, text="Choose a SWASTIK folder to begin.", wraplength=1000)
+        self.import_status = ttk.Label(f, text="Automatic daily .db and .sql backups are saved beside the EXE; latest copies are saved under temp\\<company>.", wraplength=1000)
         self.import_status.pack(anchor="w", pady=8)
 
     def create_backup_now(self):
@@ -204,9 +206,20 @@ class App(tk.Tk):
         except Exception as exc:
             messagebox.showerror("Backup", str(exc))
 
+    def _automatic_backup_tick(self):
+        """Refresh latest copies periodically and create a daily snapshot after date rollover."""
+        try:
+            from db import backup_database
+            backup_database()
+        except Exception as exc:
+            print(f"Automatic backup failed: {exc}", file=sys.stderr)
+        finally:
+            if self.winfo_exists():
+                self.after(60 * 60 * 1000, self._automatic_backup_tick)
+
     def restore_backup(self):
         from db import restore_database
-        path = filedialog.askopenfilename(title="Select SQLite backup", filetypes=[("SQLite database", "*.db"), ("All files", "*.*")])
+        path = filedialog.askopenfilename(title="Select SQLite backup", filetypes=[("Database backup", "*.db *.sql"), ("SQLite database", "*.db"), ("SQL dump", "*.sql"), ("All files", "*.*")])
         if not path:
             return
         if not messagebox.askyesno("Restore Backup", "Restore this backup into the currently selected company? The current database will be copied to a safety file first."):
