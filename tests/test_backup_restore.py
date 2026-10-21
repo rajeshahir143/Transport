@@ -32,6 +32,8 @@ class BackupRestoreTests(unittest.TestCase):
         self.dbmod.BACKUP_DIR = self.root / "Backup"
         self.dbmod.TEMP_BACKUP_DIR = self.root / "temp"
         self.dbmod.init_db()
+        # init_db() opens/closes its own connection, but restore tests use only
+        # isolated temp paths; keep all test data separated from real company DBs.
         self._insert_linked_sample("BEFORE")
 
     def tearDown(self):
