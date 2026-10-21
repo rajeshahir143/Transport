@@ -102,15 +102,22 @@ def _atomic_sqlite_copy(source_path, destination):
 
 
 def _validate_sql_dump(sql_path):
+    """Execute a SQL dump in an isolated DB and close every SQLite handle (Windows-safe)."""
     import os
     import tempfile
     fd, temp_name = tempfile.mkstemp(prefix="rr_sql_validate_", suffix=".db", dir=str(BASE))
     os.close(fd)
+    test = None
     try:
-        with sqlite3.connect(temp_name) as test:
-            test.executescript(Path(sql_path).read_text(encoding="utf-8"))
+        test = sqlite3.connect(temp_name)
+        test.executescript(Path(sql_path).read_text(encoding="utf-8"))
+        test.commit()
+        test.close()
+        test = None
         _validate_database_file(temp_name)
     finally:
+        if test is not None:
+            test.close()
         try:
             os.remove(temp_name)
         except OSError:
