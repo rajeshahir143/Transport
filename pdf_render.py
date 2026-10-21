@@ -329,9 +329,15 @@ def generate_bill_pdf(out_path, firm, bill, builties):
         desp = num(item.get("despatch_weight") or item.get("qty"))
         rcpt = num(item.get("receipt_weight") or item.get("qty"))
         rate = num(item.get("sale_rate") or item.get("rate_per_ton"))
-        amount = num(item.get("sale_amount"))
-        if amount <= 0:
-            amount = min(desp, rcpt) * rate
+        basis = str(bill.get("weight_basis") or "Both Less")
+        bill_rate = num(bill.get("rate_per_ton")) or rate
+        if basis == "Despatch":
+            bill_weight = desp
+        elif basis == "Receipt":
+            bill_weight = rcpt
+        else:
+            bill_weight = rcpt - desp
+        amount = bill_weight * bill_rate
         total_desp += desp
         total_rcpt += rcpt
         total_amount += amount
