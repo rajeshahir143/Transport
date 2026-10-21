@@ -233,55 +233,88 @@ class App(tk.Tk):
             messagebox.showerror("Restore Backup", f"Restore failed; current data was not intentionally overwritten.\n{exc}")
 
     def import_swastik_zip(self):
-        """Inspect a legacy SWASTIK folder safely before any data is written."""
-        import os
-        import struct
-        from collections import Counter
+        """Preview and import SWASTIK E/K/N/R/S DBF records into isolated company DBs."""
+        from tkinter import messagebox, filedialog
+        from swastik_import import discover_companies, inspect_company, import_company
+        import db as db_module
 
-        folder = filedialog.askdirectory(title="Select old company data folder", mustexist=True)
+        folder = filedialog.askdirectory(
+            title="Select extracted SWASTIK folder (contains DO_SOFT)",
+            mustexist=True,
+        )
         if not folder:
             return
 
-        dbf_files = []
-        for root, _dirs, files in os.walk(folder):
-            for filename in files:
-                if filename.lower().endswith(".dbf"):
-                    path = os.path.join(root, filename)
-                    records = None
-                    try:
-                        with open(path, "rb") as stream:
-                            header = stream.read(32)
-                        if len(header) >= 8:
-                            records = struct.unpack("<I", header[4:8])[0]
-                    except (OSError, struct.error):
-                        pass
-                    dbf_files.append({
-                        "path": path,
-                        "relative": os.path.relpath(path, folder),
-                        "name": filename.upper(),
-                        "records": records,
-                    })
+        try:
+            companies = discover_companies(folder)
+            preview = []
+            for code, data_dir in companies.items():
+                counts = inspect_company(data_dir)
+                preview.append(
+                    f"{code}: DO {counts['do1']:,}, Schedules {counts['do2']:,}, "
+                    f"Builty {counts['builty']:,}, Bills {counts['bill1']:,}, "
+                    f"Bill details {counts['bill2']:,}"
+                )
+            preview_text = "\\n".join(preview)
+            self.import_status.configure(
+                text="SWASTIK source preview (active, non-deleted DBF records):\\n" + preview_text
+            )
+            if not messagebox.askyesno(
+                "Confirm Import",
+                "The following company databases will be updated. Each database will be backed up first. "
+                "Existing records will not be deleted.\\n\\n" + preview_text +
+                "\\n\\nProceed with import?",
+                parent=self,
+            ):
+                return
 
-        if not dbf_files:
-            self.import_status.configure(text="No .DBF files found in selected folder.")
-            messagebox.showerror("Import", "No DBF files were found. Select the folder containing the old company data.")
-            return
-
-        # Show a safe inventory. Header counts can include deleted rows; this is
-        # deliberately not presented as a completed import.
-        by_name = Counter()
-        for item in dbf_files:
-            by_name[item["name"]] += item["records"] or 0
-        summary = [
-            f"DBF files found: {len(dbf_files)}",
-            "Record counts below are DBF header counts (may include deleted records):",
-        ]
-        for name, count in sorted(by_name.items()):
-            summary.append(f"  {name}: {count:,}")
-        summary.append("")
-        summary.append("No records have been imported yet. Import is stopped safely until the source field mapping and DO → Builty → Bill links are verified.")
-        self.import_status.configure(text="\n".join(summary))
-        messagebox.showinfo("SWASTIK data scan", "\n".join(summary))
+            previous_company = db_module.get_active_company()
+            reports = []
+            try:
+                for code, data_dir in companies.items():
+                    # E/K/N/R/S each get a separate SQLite database.
+                    db_module.set_active_company(code)
+                    db_module.init_db()
+                    db_module.backup_database()
+                    with db_module.db() as con:
+                        result = import_company(data_dir, con)
+                        actual = {
+                            "DO": con.execute("SELECT COUNT(*) FROM dos").fetchone()[0],
+                            "Builty": con.execute("SELECT COUNT(*) FROM builtys").fetchone()[0],
+                            "Bill": con.execute("SELECT COUNT(*) FROM bills").fetchone()[0],
+                            "Broken Builty→DO links": con.execute(
+                                "SELECT COUNT(*) FROM builtys b LEFT JOIN dos d ON d.id=b.do_id WHERE d.id IS NULL"
+                            ).fetchone()[0],
+                            "Broken Bill→Builty links": con.execute(
+                                "SELECT COUNT(*) FROM bill_builtys bb LEFT JOIN bills b ON b.id=bb.bill_id "
+                                "LEFT JOIN builtys y ON y.id=bb.builty_id WHERE b.id IS NULL OR y.id IS NULL"
+                            ).fetchone()[0],
+                        }
+                    reports.append(
+                        f"{code}: added DO {result['do_inserted']}, Builty {result['builty_inserted']}, "
+                        f"Bill {result['bill_inserted']}; existing DO {result['do_existing']}, "
+                        f"Builty {result['builty_existing']}; schedules {result['schedules_inserted']}; "
+                        f"unlinked Builty skipped {result['orphan_builty_skipped']}."
+                    )
+                    reports.append(
+                        f"   Database totals: DO {actual['DO']}, Builty {actual['Builty']}, "
+                        f"Bill {actual['Bill']}; broken links: Builty→DO {actual['Broken Builty→DO links']}, "
+                        f"Bill→Builty {actual['Broken Bill→Builty links']}."
+                    )
+            finally:
+                db_module.set_active_company(previous_company)
+                db_module.init_db()
+            report_text = "\\n".join(reports)
+            self.import_status.configure(text="Import finished. Check per-company totals below.\\n" + report_text)
+            messagebox.showinfo("Import Results", report_text, parent=self)
+            self._restart_app()
+        except Exception as exc:
+            messagebox.showerror(
+                "Import failed",
+                "Import stopped because an error occurred. Review the message before retrying; "
+                "company databases are isolated and the pre-import backup is retained.\\n\\n" + str(exc),
+                parent=self,
+            )
 
     # ===================== DO TAB =====================
     def do_tab(self, nb):
