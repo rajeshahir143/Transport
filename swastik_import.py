@@ -62,7 +62,7 @@ def read_dbf(path):
                     text = raw.decode("ascii", "ignore").strip()
                     try:
                         value = float(text) if text else 0
-                        if decimals == 0 and value.is_integer():
+                        if decimals == 0 and float(value).is_integer():
                             value = int(value)
                     except ValueError:
                         value = 0
