@@ -328,9 +328,10 @@ def generate_bill_pdf(out_path, firm, bill, builties):
     for i, item in enumerate(builties, 1):
         desp = num(item.get("despatch_weight") or item.get("qty"))
         rcpt = num(item.get("receipt_weight") or item.get("qty"))
-        rate = num(item.get("sale_rate") or item.get("rate_per_ton"))
         basis = str(bill.get("weight_basis") or "Both Less")
-        bill_rate = num(bill.get("rate_per_ton")) or rate
+        # Prefer the rate entered for this bill; fall back to legacy Builty rate fields.
+        rate = num(bill.get("rate_per_ton")) or num(item.get("sale_rate")) or num(item.get("freight_rate")) or num(item.get("rate_per_ton"))
+        bill_rate = rate
         if basis == "Despatch":
             bill_weight = desp
         elif basis == "Receipt":
