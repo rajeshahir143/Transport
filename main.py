@@ -95,12 +95,11 @@ class App(tk.Tk):
 
         nb = ttk.Notebook(self)
         nb.pack(fill="both", expand=True, padx=10, pady=5)
+        # Keep the main workspace limited to the requested daily workflow tabs.
         self.do_tab(nb)
         self.builty_tab(nb)
         self.bill_tab(nb)
         self.freight_paid_tab(nb)
-        self.debit_note_tab(nb)
-        self.rate_tab(nb)
         self.export_tab(nb)
         self.dashboard_tab(nb)
         self.swastik_import_tab(nb)
@@ -474,7 +473,7 @@ class App(tk.Tk):
     # ===================== BUILTY TAB =====================
     def builty_tab(self, nb):
         f = ttk.Frame(nb, padding=8)
-        nb.add(f, text="Builty Entry")
+        nb.add(f, text="2 · Builty Entry")
         # Two-column layout: SWASTIK-style Builty form on the left, pending DOs on the right.
         split = ttk.Panedwindow(f, orient="horizontal")
         split.pack(fill="both", expand=True)
@@ -1382,7 +1381,7 @@ class App(tk.Tk):
     # ===================== DATE-WISE EXPORT =====================
     def export_tab(self, nb):
         f = ttk.Frame(nb, padding=12)
-        nb.add(f, text="7 · Date-wise Export")
+        nb.add(f, text="5 · Date-wise Export")
         ttk.Label(f, text="Export DO, Builty and Bill records by date range",
                   style="Title.TLabel").pack(anchor="w", pady=(0, 8))
         dates = ttk.LabelFrame(f, text="Date Range", padding=8)
