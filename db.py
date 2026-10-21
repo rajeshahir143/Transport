@@ -50,27 +50,107 @@ TEMP_BACKUP_DIR = BASE / "temp"
 set_active_company(get_active_company())
 
 
-def backup_database():
-    """Create a dated daily backup and refresh a temporary latest backup."""
-    if not DB_PATH.exists():
-        return
-    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
-    TEMP_BACKUP_DIR.mkdir(parents=True, exist_ok=True)
-    daily = BACKUP_DIR / f"radhe_radhe_{date.today().isoformat()}.db"
-    latest = TEMP_BACKUP_DIR / "radhe_radhe_latest_backup.db"
-    source = sqlite3.connect(DB_PATH)
+def _company_backup_slug():
+    name = get_active_company()
+    slug = re.sub(r"[^A-Za-z0-9_-]+", "_", name).strip("_")
+    return (slug or "RadheRadheDeveloper")[:60]
+
+
+def _validate_database_file(path):
+    con = sqlite3.connect(str(path))
     try:
-        for destination in (daily, latest):
-            target = sqlite3.connect(destination)
+        check = con.execute("PRAGMA quick_check").fetchone()
+        if not check or check[0] != "ok":
+            raise ValueError("SQLite integrity check failed.")
+        tables = {row[0] for row in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        if not {"dos", "builtys", "bills"}.issubset(tables):
+            raise ValueError("Backup is missing required DO, Builty and Bill tables.")
+    finally:
+        con.close()
+
+
+def _atomic_sqlite_copy(source_path, destination):
+    import os
+    import tempfile
+    destination = Path(destination)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    fd, temp_name = tempfile.mkstemp(prefix=destination.name + ".", suffix=".tmp", dir=str(destination.parent))
+    os.close(fd)
+    try:
+        with sqlite3.connect(str(source_path)) as source, sqlite3.connect(temp_name) as target:
+            source.backup(target)
+            target.commit()
+        _validate_database_file(temp_name)
+        os.replace(temp_name, destination)
+    finally:
+        try:
+            if os.path.exists(temp_name):
+                os.remove(temp_name)
+        except OSError:
+            pass
+
+
+def _validate_sql_dump(sql_path):
+    import os
+    import tempfile
+    fd, temp_name = tempfile.mkstemp(prefix="rr_sql_validate_", suffix=".db", dir=str(BASE))
+    os.close(fd)
+    try:
+        with sqlite3.connect(temp_name) as test:
+            test.executescript(Path(sql_path).read_text(encoding="utf-8"))
+        _validate_database_file(temp_name)
+    finally:
+        try:
+            os.remove(temp_name)
+        except OSError:
+            pass
+
+
+def backup_database():
+    """Create retained daily .db/.sql backups beside the EXE and refresh company-specific temp copies."""
+    import os
+    import tempfile
+    if not DB_PATH.exists():
+        return []
+    slug = _company_backup_slug()
+    stamp = date.today().isoformat()
+    daily_db = BASE / f"RadheRadhe_{slug}_{stamp}.db"
+    daily_sql = BASE / f"RadheRadhe_{slug}_{stamp}.sql"
+    temp_dir = BASE / "temp" / slug
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    latest_db = temp_dir / "RadheRadhe_latest.db"
+    latest_sql = temp_dir / "RadheRadhe_latest.sql"
+    if not daily_db.exists():
+        _atomic_sqlite_copy(DB_PATH, daily_db)
+    else:
+        _validate_database_file(daily_db)
+    _atomic_sqlite_copy(DB_PATH, latest_db)
+    source = sqlite3.connect(str(DB_PATH))
+    try:
+        if not daily_sql.exists():
+            fd, temp_name = tempfile.mkstemp(prefix=daily_sql.name + ".", suffix=".tmp", dir=str(BASE))
             try:
-                source.backup(target)
-                target.commit()
+                with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as stream:
+                    for line in source.iterdump():
+                        stream.write(line + "\n")
+                _validate_sql_dump(temp_name)
+                os.replace(temp_name, daily_sql)
             finally:
-                target.close()
+                if os.path.exists(temp_name):
+                    os.remove(temp_name)
+        fd, temp_name = tempfile.mkstemp(prefix=latest_sql.name + ".", suffix=".tmp", dir=str(temp_dir))
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as stream:
+                for line in source.iterdump():
+                    stream.write(line + "\n")
+            _validate_sql_dump(temp_name)
+            os.replace(temp_name, latest_sql)
+        finally:
+            if os.path.exists(temp_name):
+                os.remove(temp_name)
     finally:
         source.close()
-
-
+    return [daily_db, daily_sql, latest_db, latest_sql]
 
 def db():
     con = sqlite3.connect(DB_PATH)
@@ -254,22 +334,41 @@ def lookup_rate(from_place, to_place, material):
 
 
 def restore_database(backup_path):
-    """Restore a SQLite backup after validating it and saving the current database."""
-    import shutil
+    """Validate a .db or .sql backup, save current data, then atomically restore it."""
+    import os
+    import tempfile
     source = Path(backup_path)
     if not source.is_file():
         raise FileNotFoundError(str(source))
-    test = sqlite3.connect(str(source))
-    try:
-        result = test.execute("PRAGMA quick_check").fetchone()
-        if not result or result[0] != "ok":
-            raise ValueError("Selected file is not a valid SQLite database backup.")
-    finally:
-        test.close()
-    if DB_PATH.exists():
-        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        safety = DB_PATH.with_name(DB_PATH.stem + "_before_restore_" + stamp + DB_PATH.suffix)
-        shutil.copy2(DB_PATH, safety)
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(source, DB_PATH)
-    return DB_PATH
+    fd, staged_name = tempfile.mkstemp(prefix="radhe_restore_", suffix=".db", dir=str(DB_PATH.parent))
+    os.close(fd)
+    staged = Path(staged_name)
+    try:
+        if source.suffix.lower() == ".sql":
+            with sqlite3.connect(str(staged)) as target:
+                target.executescript(source.read_text(encoding="utf-8"))
+            _validate_database_file(staged)
+        else:
+            with sqlite3.connect(str(source)) as check:
+                result = check.execute("PRAGMA quick_check").fetchone()
+                if not result or result[0] != "ok":
+                    raise ValueError("Selected file is not a valid SQLite database backup.")
+                tables = {row[0] for row in check.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+                if not {"dos", "builtys", "bills"}.issubset(tables):
+                    raise ValueError("This file is missing required DO, Builty and Bill tables.")
+                with sqlite3.connect(str(staged)) as target:
+                    check.backup(target)
+            _validate_database_file(staged)
+        if DB_PATH.exists():
+            stamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+            safety = DB_PATH.with_name(DB_PATH.stem + "_before_restore_" + stamp + DB_PATH.suffix)
+            _atomic_sqlite_copy(DB_PATH, safety)
+        os.replace(staged, DB_PATH)
+        return DB_PATH
+    finally:
+        try:
+            if staged.exists():
+                staged.unlink()
+        except OSError:
+            pass
