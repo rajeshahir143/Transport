@@ -1276,7 +1276,7 @@ class App(tk.Tk):
         if rate <= 0 and desp:
             rate = sum(_f(v[8]) * _f(v[6]) for v in selected if v) / desp
         basis = self.bill_vars["weight_basis"].get()
-        taxable_qty = min(desp, rcpt) if basis == "Both Less" else (desp if basis == "Despatch" else rcpt)
+        taxable_qty = (rcpt - desp) if basis == "Both Less" else (desp if basis == "Despatch" else rcpt)
         gross = round(taxable_qty * rate, 2)
         gst = round(gross * (_f(self.bill_vars["cgst_pct"].get()) + _f(self.bill_vars["sgst_pct"].get()) + _f(self.bill_vars["igst_pct"].get())) / 100, 2)
         net_before_round = gross + gst
@@ -1327,7 +1327,7 @@ class App(tk.Tk):
         desp = sum(_f(r["despatch_weight"] or r["qty"]) for r in rows)
         rcpt = sum(_f(r["receipt_weight"] or r["qty"]) for r in rows)
         basis = self.bill_vars["weight_basis"].get()
-        qty = min(desp, rcpt) if basis == "Both Less" else (desp if basis == "Despatch" else rcpt)
+        qty = (rcpt - desp) if basis == "Both Less" else (desp if basis == "Despatch" else rcpt)
         rate = _f(self.bill_vars["rate_per_ton"].get())
         if rate <= 0:
             rate = (sum(_f(r["sale_rate"]) * _f(r["despatch_weight"] or r["qty"]) for r in rows) / desp) if desp else 0
@@ -1359,7 +1359,7 @@ class App(tk.Tk):
                          "round_off": total - before_round,
                          "party_name": customer, "item_name": rows[0]["material"] or "",
                          "mines_name": rows[0]["from_place"] or "",
-                         "do_no": rows[0]["do_no"] or ""})
+                         "do_no": rows[0]["do_no"] or "", "weight_basis": basis})
         builty_rows = []
         for r in rows:
             br = con.execute("""SELECT b.builty_no,b.truck_no,b.date,b.qty,b.despatch_weight,b.receipt_weight,
