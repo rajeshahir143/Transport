@@ -127,7 +127,7 @@ def generate_builty_pdf(out_path, firm, builty, do_row, copy_label="CONSIGNOR CO
             return default
 
     # Top risk note and transporter heading
-    risk = Table([[P("AT OWNER'S RISK")]], colWidths=[202 * mm])
+    risk = Table([[P("AT OWNER'S RISK")]], colWidths=[198 * mm])
     risk.setStyle(TableStyle([("BOX",(0,0),(-1,-1),0.65,colors.black),
                               ("LEFTPADDING",(0,0),(-1,-1),4),
                               ("TOPPADDING",(0,0),(-1,-1),1),
@@ -135,7 +135,7 @@ def generate_builty_pdf(out_path, firm, builty, do_row, copy_label="CONSIGNOR CO
     story.append(risk)
     head = Table([[P(val(FIRM if "FIRM" in globals() else firm, "name", "MANSI COAL CARRIER").upper(), title)],
                   [P("LIGNITE SUPPLIER & COMMISSION AGENT", subtitle)]],
-                 colWidths=[202 * mm], rowHeights=[23 * mm, 12 * mm])
+                 colWidths=[198 * mm], rowHeights=[23 * mm, 12 * mm])
     head.setStyle(TableStyle([("BOX",(0,0),(-1,-1),0.65,colors.black),
                               ("LEFTPADDING",(0,0),(-1,-1),3),
                               ("RIGHTPADDING",(0,0),(-1,-1),3),
@@ -147,7 +147,7 @@ def generate_builty_pdf(out_path, firm, builty, do_row, copy_label="CONSIGNOR CO
     lr_no = val(builty, "builty_no", val(builty, "lr_no", val(builty, "id", "")))
     lr_date = val(builty, "date", "")
     row1 = [[P("L.R. No."), P(lr_no, bold), P("L.R. Date"), P(lr_date, bold)]]
-    story.append(cell_table(row1, [25*mm, 78*mm, 25*mm, 74*mm]))
+    story.append(cell_table(row1, [24*mm, 76*mm, 24*mm, 74*mm]))
 
     # Consignor / consignee columns
     consignor_name = val(builty, "consignor", "G.M.D.C. LTD.")
@@ -157,7 +157,7 @@ def generate_builty_pdf(out_path, firm, builty, do_row, copy_label="CONSIGNOR CO
     consignee_gstin = val(do_row, "customer_gstin", "")
     left_lines = [P(": CONSIGNOR :", bold), P(consignor_name), P(""), P("GSTIN : " + str(consignor_gstin))]
     right_lines = [P(": CONSIGNEE :", bold), P(consignee_name), P(destination), P("GSTIN : " + str(consignee_gstin))]
-    parties = Table([[left_lines, right_lines]], colWidths=[101*mm, 101*mm])
+    parties = Table([[left_lines, right_lines]], colWidths=[99*mm, 99*mm])
     parties.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.65,colors.black),("INNERGRID",(0,0),(-1,-1),0.45,colors.black),
         ("VALIGN",(0,0),(-1,-1),"TOP"),("LEFTPADDING",(0,0),(-1,-1),5),
@@ -170,7 +170,7 @@ def generate_builty_pdf(out_path, firm, builty, do_row, copy_label="CONSIGNOR CO
              P("Regi.No. :"), P(val(do_row, "regi_no", val(do_row, "customer_no", "")), bold),
              P("Challan No. :"), P(val(builty, "challan_no", ""), bold),
              P("Quota Dt. :"), P(val(builty, "quota_date", ""), bold)]]
-    story.append(cell_table(row2, [20*mm, 28*mm, 22*mm, 28*mm, 25*mm, 26*mm, 22*mm, 31*mm]))
+    story.append(cell_table(row2, [19*mm, 27*mm, 21*mm, 27*mm, 24*mm, 25*mm, 22*mm, 33*mm]))
 
     desc = val(do_row, "material", val(do_row, "item_name", "LIGNITE"))
     to_place = val(builty, "center_name", val(builty, "to_place", val(do_row, "to_place", "")))
