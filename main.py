@@ -1211,11 +1211,16 @@ class App(tk.Tk):
             ("SGST %", "sgst_pct", 7), ("IGST %", "igst_pct", 7),
         )):
             ttk.Label(settings, text=label).grid(row=0, column=idx*2, sticky="w", padx=3)
-            ttk.Entry(settings, textvariable=self.bill_vars[key], width=width).grid(row=0, column=idx*2+1, padx=3)
+            entry = ttk.Entry(settings, textvariable=self.bill_vars[key], width=width)
+            entry.grid(row=0, column=idx*2+1, padx=3)
+            if key == "rate_per_ton":
+                entry.bind("<KeyRelease>", self.update_selected_total)
         ttk.Label(settings, text="GST Paid By").grid(row=0, column=8, padx=3)
         ttk.Combobox(settings, textvariable=self.bill_vars["gst_paid_by"], values=("Transporter", "Customer", "Company"), state="readonly", width=13).grid(row=0, column=9, padx=3)
         ttk.Label(settings, text="Weight").grid(row=0, column=10, padx=3)
-        ttk.Combobox(settings, textvariable=self.bill_vars["weight_basis"], values=("Both Less", "Despatch", "Receipt"), state="readonly", width=12).grid(row=0, column=11, padx=3)
+        weight_combo = ttk.Combobox(settings, textvariable=self.bill_vars["weight_basis"], values=("Both Less", "Despatch", "Receipt"), state="readonly", width=12)
+        weight_combo.grid(row=0, column=11, padx=3)
+        weight_combo.bind("<<ComboboxSelected>>", self.update_selected_total)
         ttk.Label(settings, text="Remarks").grid(row=1, column=0, padx=3, sticky="w")
         ttk.Entry(settings, textvariable=self.bill_vars["remarks"], width=80).grid(row=1, column=1, columnspan=7, sticky="ew", padx=3)
 
@@ -1268,14 +1273,26 @@ class App(tk.Tk):
         self.update_selected_total()
 
     def update_selected_total(self, _e=None):
+        # Recalculate the Rate Rs. and Amount Rs. columns from the entered bill rate
+        # and currently selected weight basis, so the grid agrees with the bill total.
+        basis = self.bill_vars["weight_basis"].get()
+        entered_rate = _f(self.bill_vars["rate_per_ton"].get())
+        for iid in self.pb.get_children():
+            values = list(self.pb.item(iid)["values"])
+            desp_row, rcpt_row = _f(values[6]), _f(values[7])
+            row_rate = entered_rate if entered_rate > 0 else _f(values[8])
+            bill_weight = (rcpt_row - desp_row) if basis == "Both Less" else (desp_row if basis == "Despatch" else rcpt_row)
+            values[8] = f"{row_rate:.2f}"
+            values[9] = f"{bill_weight * row_rate:.2f}"
+            self.pb.item(iid, values=values)
+
         selected = [self.pb.item(i)["values"] for i in self.pb.selection()]
         count = len(selected)
         desp = sum(_f(v[6]) for v in selected if v)
         rcpt = sum(_f(v[7]) for v in selected if v)
-        rate = _f(self.bill_vars["rate_per_ton"].get())
+        rate = entered_rate
         if rate <= 0 and desp:
             rate = sum(_f(v[8]) * _f(v[6]) for v in selected if v) / desp
-        basis = self.bill_vars["weight_basis"].get()
         taxable_qty = (rcpt - desp) if basis == "Both Less" else (desp if basis == "Despatch" else rcpt)
         gross = round(taxable_qty * rate, 2)
         gst = round(gross * (_f(self.bill_vars["cgst_pct"].get()) + _f(self.bill_vars["sgst_pct"].get()) + _f(self.bill_vars["igst_pct"].get())) / 100, 2)
