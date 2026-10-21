@@ -151,7 +151,7 @@ class App(tk.Tk):
         except Exception as exc:
             messagebox.showerror("Dashboard", f"Could not refresh dashboard:\n{exc}")
 
-    # ===================== MULTI-COMPANY / SWASTIK IMPORT =====================
+    # ===================== MULTI-COMPANY / IMPORT =====================
     def add_company(self):
         from tkinter import simpledialog
         name = simpledialog.askstring("Add Company", "Enter company name:", parent=self)
@@ -185,10 +185,10 @@ class App(tk.Tk):
 
     def swastik_import_tab(self, nb):
         f = ttk.Frame(nb, padding=14)
-        nb.add(f, text="SWASTIK Import / Backup")
-        ttk.Label(f, text="Import old SWASTIK data",
+        nb.add(f, text="Import")
+        ttk.Label(f, text="Import legacy company data",
                   style="Title.TLabel").pack(anchor="w", pady=(0, 8))
-        ttk.Label(f, text="Click Import, select the old SWASTIK data folder, and confirm. Only DO, Builty and Bill records should be imported.",
+        ttk.Label(f, text="Select the old company data folder and confirm. DO, Builty and Bill records are the intended import scope.",
                   wraplength=900).pack(anchor="w", pady=4)
         ttk.Button(f, text="Import", command=self.import_swastik_zip).pack(anchor="w", pady=10)
         backup_row = ttk.Frame(f)
@@ -238,7 +238,7 @@ class App(tk.Tk):
         import struct
         from collections import Counter
 
-        folder = filedialog.askdirectory(title="Select old SWASTIK data folder", mustexist=True)
+        folder = filedialog.askdirectory(title="Select old company data folder", mustexist=True)
         if not folder:
             return
 
@@ -264,7 +264,7 @@ class App(tk.Tk):
 
         if not dbf_files:
             self.import_status.configure(text="No .DBF files found in selected folder.")
-            messagebox.showerror("SWASTIK Import", "No DBF files were found. Select the folder that contains the old SWASTIK data.")
+            messagebox.showerror("Import", "No DBF files were found. Select the folder containing the old company data.")
             return
 
         # Show a safe inventory. Header counts can include deleted rows; this is
