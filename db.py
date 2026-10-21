@@ -14,40 +14,66 @@ COMPANIES_DIR = BASE / "Companies"
 COMPANIES_DIR.mkdir(parents=True, exist_ok=True)
 ACTIVE_COMPANY_FILE = BASE / "active_company.txt"
 
+COMPANY_DISPLAY_NAMES = {
+    "E": "NILKANTH LOGISTICS",
+    "K": "K. D. ENTERPRISE",
+    "N": "M R ENTERPRISE",
+    "R": "SHREE RAMDEV ENTERPRISE",
+    "S": "SHIVAY LOGISTICS",
+    "P": "PARTH ENTERPRISE",
+    "M": "MANSI COAL CAREER",
+}
+_DISPLAY_TO_CODE = {label.casefold(): code for code, label in COMPANY_DISPLAY_NAMES.items()}
+
+
 def _safe_company(name):
-    name = re.sub(r"[^A-Za-z0-9 _-]", "", str(name or "")).strip()
-    return name[:60] or "Radhe Radhe Developer"
+    value = str(name or "").strip()
+    # Accept either the user-facing company label or its stable storage code.
+    if value.casefold() in _DISPLAY_TO_CODE:
+        return _DISPLAY_TO_CODE[value.casefold()]
+    value = re.sub(r"[^A-Za-z0-9 _-]", "", value).strip()
+    return value[:60] or "Radhe Radhe Developer"
+
+
+def display_company_name(name):
+    code = _safe_company(name)
+    return COMPANY_DISPLAY_NAMES.get(code, code)
+
 
 def list_companies():
     names = ["Radhe Radhe Developer"]
+    # Always expose the seven configured company names, while retaining their
+    # existing code-named storage directories (E/K/N/R/S/P/M).
+    names.extend(COMPANY_DISPLAY_NAMES[code] for code in ("E", "K", "N", "R", "S", "P", "M"))
     if COMPANIES_DIR.exists():
-        names.extend(p.name for p in COMPANIES_DIR.iterdir() if p.is_dir())
+        for p in COMPANIES_DIR.iterdir():
+            if p.is_dir() and p.name not in COMPANY_DISPLAY_NAMES:
+                names.append(p.name)
     return list(dict.fromkeys(names))
+
 
 def get_active_company():
     try:
         name = ACTIVE_COMPANY_FILE.read_text(encoding="utf-8").strip()
     except OSError:
         name = "Radhe Radhe Developer"
-    return _safe_company(name)
+    code = _safe_company(name)
+    return "Radhe Radhe Developer" if code == "Radhe Radhe Developer" else display_company_name(code)
+
 
 def set_active_company(name):
     global DB_PATH, BACKUP_DIR, TEMP_BACKUP_DIR
-    name = _safe_company(name)
-    if name == "Radhe Radhe Developer":
+    code = _safe_company(name)
+    if code == "Radhe Radhe Developer":
         DB_PATH = BASE / "radhe_radhe.db"
+        ACTIVE_COMPANY_FILE.write_text("Radhe Radhe Developer", encoding="utf-8")
     else:
-        DB_PATH = COMPANIES_DIR / name / "radhe_radhe.db"
+        DB_PATH = COMPANIES_DIR / code / "radhe_radhe.db"
         DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+        ACTIVE_COMPANY_FILE.write_text(code, encoding="utf-8")
     BACKUP_DIR = DB_PATH.parent / "Backup"
     TEMP_BACKUP_DIR = DB_PATH.parent / "temp"
-    ACTIVE_COMPANY_FILE.write_text(name, encoding="utf-8")
-    return name
-
-DB_PATH = BASE / "radhe_radhe.db"
-BACKUP_DIR = BASE / "Backup"
-TEMP_BACKUP_DIR = BASE / "temp"
-set_active_company(get_active_company())
+    return display_company_name(code)
 
 
 def _company_backup_slug():
