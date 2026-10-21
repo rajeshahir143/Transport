@@ -15,9 +15,9 @@ COMPANIES_DIR.mkdir(parents=True, exist_ok=True)
 ACTIVE_COMPANY_FILE = BASE / "active_company.txt"
 
 COMPANY_DISPLAY_NAMES = {
-    "E": "NILKANTH LOGISTICS",
+    "E": "M R ENTERPRISE",
     "K": "K. D. ENTERPRISE",
-    "N": "M R ENTERPRISE",
+    "N": "NILKANTH LOGISTICS",
     "R": "SHREE RAMDEV ENTERPRISE",
     "S": "SHIVAY LOGISTICS",
     "P": "PARTH ENTERPRISE",
