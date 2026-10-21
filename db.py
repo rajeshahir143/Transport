@@ -354,24 +354,36 @@ def restore_database(backup_path):
     staged = Path(staged_name)
     try:
         if source.suffix.lower() == ".sql":
-            with sqlite3.connect(str(staged)) as target:
+            target = sqlite3.connect(str(staged))
+            try:
                 target.executescript(source.read_text(encoding="utf-8"))
+                target.commit()
+            finally:
+                target.close()
             _validate_database_file(staged)
         else:
-            with sqlite3.connect(str(source)) as check:
+            check = sqlite3.connect(str(source))
+            try:
                 result = check.execute("PRAGMA quick_check").fetchone()
                 if not result or result[0] != "ok":
                     raise ValueError("Selected file is not a valid SQLite database backup.")
                 tables = {row[0] for row in check.execute("SELECT name FROM sqlite_master WHERE type='table'")}
                 if not {"dos", "builtys", "bills"}.issubset(tables):
                     raise ValueError("This file is missing required DO, Builty and Bill tables.")
-                with sqlite3.connect(str(staged)) as target:
+                target = sqlite3.connect(str(staged))
+                try:
                     check.backup(target)
+                    target.commit()
+                finally:
+                    target.close()
+            finally:
+                check.close()
             _validate_database_file(staged)
         if DB_PATH.exists():
             stamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
             safety = DB_PATH.with_name(DB_PATH.stem + "_before_restore_" + stamp + DB_PATH.suffix)
             _atomic_sqlite_copy(DB_PATH, safety)
+        # Ensure the staged file has no open SQLite handles before Windows os.replace.
         os.replace(staged, DB_PATH)
         return DB_PATH
     finally:
