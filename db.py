@@ -120,24 +120,21 @@ def backup_database():
     temp_dir.mkdir(parents=True, exist_ok=True)
     latest_db = temp_dir / "RadheRadhe_latest.db"
     latest_sql = temp_dir / "RadheRadhe_latest.sql"
-    if not daily_db.exists():
-        _atomic_sqlite_copy(DB_PATH, daily_db)
-    else:
-        _validate_database_file(daily_db)
+    # Refresh today's snapshot each time; previous dates remain untouched.
+    _atomic_sqlite_copy(DB_PATH, daily_db)
     _atomic_sqlite_copy(DB_PATH, latest_db)
     source = sqlite3.connect(str(DB_PATH))
     try:
-        if not daily_sql.exists():
-            fd, temp_name = tempfile.mkstemp(prefix=daily_sql.name + ".", suffix=".tmp", dir=str(BASE))
-            try:
-                with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as stream:
-                    for line in source.iterdump():
-                        stream.write(line + "\n")
-                _validate_sql_dump(temp_name)
-                os.replace(temp_name, daily_sql)
-            finally:
-                if os.path.exists(temp_name):
-                    os.remove(temp_name)
+        fd, temp_name = tempfile.mkstemp(prefix=daily_sql.name + ".", suffix=".tmp", dir=str(BASE))
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8", newline="\\n") as stream:
+                for line in source.iterdump():
+                    stream.write(line + "\\n")
+            _validate_sql_dump(temp_name)
+            os.replace(temp_name, daily_sql)
+        finally:
+            if os.path.exists(temp_name):
+                os.remove(temp_name)
         fd, temp_name = tempfile.mkstemp(prefix=latest_sql.name + ".", suffix=".tmp", dir=str(temp_dir))
         try:
             with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as stream:
