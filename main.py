@@ -608,15 +608,6 @@ class App(tk.Tk):
         title = ttk.Frame(left)
         title.pack(fill="x")
         ttk.Label(title, text="Builty Entry", style="Title.TLabel").pack(side="left")
-        # Keep Save visible beside the title instead of letting it get clipped by
-        # the many navigation buttons on the right.
-        ttk.Button(title, text="💾 Save Builty", command=self.create_builty).pack(side="left", padx=(18, 4))
-        ttk.Button(title, text="Cancel", command=self.clear_builty_form).pack(side="right", padx=2)
-        ttk.Button(title, text="Next ▶", command=lambda: self.navigate_builty(1)).pack(side="right", padx=2)
-        ttk.Button(title, text="◀ Previous", command=lambda: self.navigate_builty(-1)).pack(side="right", padx=2)
-        ttk.Button(title, text="Delete", command=self.delete_selected_builty).pack(side="right", padx=2)
-        ttk.Button(title, text="Edit", command=self.load_selected_builty).pack(side="right", padx=2)
-        ttk.Button(title, text="＋ Add", command=self.open_new_builty_window).pack(side="right", padx=2)
 
         form = ttk.LabelFrame(left, text="Builty Details", padding=8)
         form.pack(fill="x", pady=(6, 5))
