@@ -627,9 +627,9 @@ class App(tk.Tk):
         self.b_vars["sgst_rate"].set("0")
 
         pending_box = ttk.LabelFrame(right, text="Pending DO — select a DO to auto-fill details", padding=5)
-        pending_box.pack(fill="both", expand=True, pady=4)
+        pending_box.pack(fill="x", expand=False, pady=4)
         cols = ("id", "do_no", "customer", "material", "remaining")
-        self.pd = ttk.Treeview(pending_box, columns=cols, show="headings", height=4, selectmode="browse")
+        self.pd = ttk.Treeview(pending_box, columns=cols, show="headings", height=5, selectmode="browse")
         for c, h, w in zip(cols, ("ID", "DO No", "Party Name", "Item Name", "Pending TON"), (42, 105, 185, 130, 90)):
             self.pd.heading(c, text=h)
             self.pd.column(c, width=w, anchor="w" if c in ("customer", "material") else "center")
@@ -711,7 +711,7 @@ class App(tk.Tk):
         ttk.Button(saved_head, text="All Builty", command=self.show_all_builty_records).pack(side="right")
         ttk.Button(saved_head, text="Selected DO Builty", command=self.show_selected_do_builtys).pack(side="right", padx=4)
         bcols = ("id", "no", "do", "party", "date", "truck", "qty", "freight", "status")
-        self.bt = ttk.Treeview(left, columns=bcols, show="headings", height=6)
+        self.bt = ttk.Treeview(right, columns=bcols, show="headings", height=5)
         for c, h, w in zip(bcols, ("ID", "Builty No.", "DO No.", "Party Name", "Date", "Truck No.", "Weight", "Amount", "Status"),
                            (35, 75, 90, 150, 82, 95, 72, 78, 72)):
             self.bt.heading(c, text=h)
