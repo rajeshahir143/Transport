@@ -1592,7 +1592,102 @@ class App(tk.Tk):
         ttk.Button(buttons, text="Export DOs to CSV", command=lambda: self.export_datewise("do")).grid(row=0, column=0, padx=5, pady=5)
         ttk.Button(buttons, text="Export Builties to CSV", command=lambda: self.export_datewise("builty")).grid(row=0, column=1, padx=5, pady=5)
         ttk.Button(buttons, text="Export Bills to CSV", command=lambda: self.export_datewise("bill")).grid(row=0, column=2, padx=5, pady=5)
+        ttk.Button(buttons, text="Daily Builty Report (CSV)", command=self.export_daily_builty_report).grid(row=2, column=0, columnspan=3, padx=5, pady=8, sticky="ew")
         ttk.Button(buttons, text="Export ALL (DO + Builty + Bills)", command=lambda: self.export_datewise("all")).grid(row=1, column=0, columnspan=3, padx=5, pady=8, sticky="ew")
+
+
+    def export_daily_builty_report(self):
+        """Export a date-filtered Builty daily report with transport and party details."""
+        from tkinter import filedialog
+        from pathlib import Path as _Path
+        import csv as _csv
+
+        start = self._parse_export_date(self.export_from.get())
+        end = self._parse_export_date(self.export_to.get())
+        if not start or not end:
+            messagebox.showerror("Daily Builty Report", "Enter dates as DD/MM/YY or DD/MM/YYYY.")
+            return
+        if start > end:
+            messagebox.showerror("Daily Builty Report", "From Date must be on or before To Date.")
+            return
+        folder = filedialog.askdirectory(title="Choose folder to save Daily Builty Report")
+        if not folder:
+            return
+
+        con = db()
+        try:
+            builty_columns = {r["name"] for r in con.execute("PRAGMA table_info(builtys)")}
+            do_columns = {r["name"] for r in con.execute("PRAGMA table_info(dos)")}
+            def col(alias, available, name, fallback=""):
+                return f"{alias}.{name}" if name in available else f"'{fallback}'"
+            # GRAND TOTAL is the saved freight amount; if the source contains a separate
+            # grand-total field in future versions, prefer that field.
+            grand_total_expr = col("b", builty_columns, "grand_total")
+            if grand_total_expr == "' '" or grand_total_expr == "''":
+                grand_total_expr = "COALESCE(b.freight_amount,0)"
+            elif grand_total_expr == "''":
+                grand_total_expr = "COALESCE(b.freight_amount,0)"
+            mines_expr = col("b", builty_columns, "from_place", "BHAVNAGAR")
+            if mines_expr == "'BHAVNAGAR'" and "from_place" in do_columns:
+                mines_expr = "d.from_place"
+            agent_expr = col("b", builty_columns, "agent_name")
+            if agent_expr == "''":
+                agent_expr = col("d", do_columns, "agent_name")
+            if agent_expr == "''":
+                agent_expr = col("d", do_columns, "transporter_name")
+            sale_expr = col("b", builty_columns, "sale_party")
+            if sale_expr == "''":
+                sale_expr = col("b", builty_columns, "sale_party_name")
+            supply_expr = col("b", builty_columns, "supply_party")
+            if supply_expr == "''":
+                supply_expr = col("b", builty_columns, "supply_party_mill")
+            if sale_expr == "''" and supply_expr == "''":
+                sale_supply_expr = "''"
+            else:
+                sale_supply_expr = "TRIM(COALESCE(" + sale_expr + ", '') || CASE WHEN COALESCE(" + sale_expr + ", '') <> '' AND COALESCE(" + supply_expr + ", '') <> '' THEN ' / ' ELSE '' END || COALESCE(" + supply_expr + ", ''))"
+            query = f"""
+                SELECT b.builty_no AS builty_no,
+                       {mines_expr} AS mines,
+                       b.date AS builty_date,
+                       COALESCE(d.do_no,d.gmdc_do_no,'') AS do_no,
+                       b.truck_no AS vehicle_no,
+                       {grand_total_expr} AS grand_total,
+                       COALESCE(b.qty,0) AS weight,
+                       COALESCE(d.customer_name,'') AS do_party_name,
+                       {sale_supply_expr} AS sale_supply_party,
+                       {agent_expr} AS agent_name,
+                       COALESCE(b.freight_rate,0) AS freight_rate
+                FROM builtys b JOIN dos d ON d.id=b.do_id
+                ORDER BY b.date,b.id
+            """
+            records = []
+            for row in con.execute(query):
+                parsed = self._parse_export_date(row["builty_date"])
+                if parsed and start <= parsed <= end:
+                    records.append(dict(row))
+            fields = [
+                ("Builty No.", "builty_no"), ("Mines", "mines"),
+                ("Blt. Date", "builty_date"), ("DO No.", "do_no"),
+                ("Vehicle No.", "vehicle_no"), ("GRAND TOTAL", "grand_total"),
+                ("Weight", "weight"), ("DO Party Name", "do_party_name"),
+                ("Sale Party / Supply Party - Mill Name", "sale_supply_party"),
+                ("Agent Name", "agent_name"), ("Freight Rate", "freight_rate"),
+            ]
+            out = _Path(folder) / f"Daily_Builty_Report_{start.strftime('%Y%m%d')}_to_{end.strftime('%Y%m%d')}.csv"
+            with open(out, "w", newline="", encoding="utf-8-sig") as fh:
+                writer = _csv.writer(fh)
+                writer.writerow([label for label, _ in fields])
+                for record in records:
+                    writer.writerow([record.get(key, "") for _, key in fields])
+                writer.writerow([])
+                writer.writerow(["TOTAL WEIGHT", sum(float(x.get("weight") or 0) for x in records)])
+                writer.writerow(["GRAND TOTAL", sum(float(x.get("grand_total") or 0) for x in records)])
+        except Exception as e:
+            messagebox.showerror("Daily Builty Report", str(e))
+            return
+        finally:
+            con.close()
+        messagebox.showinfo("Daily Builty Report", f"Report saved to:\n{out}\n\nRecords: {len(records)}")
 
     def _parse_export_date(self, value):
         value = str(value or "").strip()
