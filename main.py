@@ -386,6 +386,9 @@ class App(tk.Tk):
         ttk.Button(bar, text="Upload PDF → Create DO", command=self.upload_pdf).pack(side="left")
         ttk.Button(bar, text="Edit / Update Selected", command=self.edit_do).pack(side="left", padx=6)
         ttk.Button(bar, text="Delete Selected", command=self.delete_do).pack(side="left")
+        self.show_all_dos = False
+        ttk.Button(bar, text="Pending DO", command=self.show_pending_dos).pack(side="left", padx=(10, 3))
+        ttk.Button(bar, text="All DO", command=self.show_all_do).pack(side="left", padx=3)
         ttk.Button(bar, text="Refresh", command=self.refresh_do).pack(side="right")
 
         cols = ("id", "do_no", "date", "customer", "material", "qty", "remaining", "transporter", "to_place")
@@ -399,20 +402,33 @@ class App(tk.Tk):
         self.dot.bind("<Double-1>", lambda _e: self.edit_do())
         self.refresh_do()
 
+    def show_pending_dos(self):
+        self.show_all_dos = False
+        self.refresh_do()
+
+    def show_all_do(self):
+        self.show_all_dos = True
+        self.refresh_do()
+
     def refresh_do(self):
         if not hasattr(self, "dot"):
             return
         for x in self.dot.get_children():
             self.dot.delete(x)
         con = db()
-        for r in con.execute("SELECT * FROM dos ORDER BY id DESC"):
-            self.dot.insert("", "end", values=(
-                r["id"], r["do_no"], r["do_date"], r["customer_name"], r["material"],
-                f'{r["qty"]:.3f}', f'{r["remaining_qty"]:.3f}', r["transporter_name"],
-                r["to_place"] or "",
-            ))
-        con.close()
-
+        try:
+            if getattr(self, "show_all_dos", False):
+                rows = con.execute("SELECT * FROM dos ORDER BY id DESC").fetchall()
+            else:
+                rows = con.execute("SELECT * FROM dos WHERE COALESCE(remaining_qty, 0) > 0.000001 ORDER BY id DESC").fetchall()
+            for r in rows:
+                self.dot.insert("", "end", values=(
+                    r["id"], r["do_no"], r["do_date"], r["customer_name"], r["material"],
+                    "{:.3f}".format(r["qty"]), "{:.3f}".format(r["remaining_qty"]), r["transporter_name"],
+                    r["to_place"] or "",
+                ))
+        finally:
+            con.close()
     def upload_pdf(self):
         p = filedialog.askopenfilename(filetypes=[("PDF files", "*.pdf")])
         if not p:
