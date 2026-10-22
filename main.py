@@ -108,17 +108,40 @@ class App(tk.Tk):
 
     # ===================== DASHBOARD =====================
     def dashboard_tab(self, nb):
+        from datetime import date, timedelta
         f = ttk.Frame(nb, padding=14)
         nb.add(f, text="Dashboard")
         ttk.Label(f, text="Company Dashboard", style="Title.TLabel").pack(anchor="w", pady=(0, 8))
         ttk.Label(f, text="Summary for the currently selected company database.").pack(anchor="w")
+
+        filters = ttk.Frame(f)
+        filters.pack(fill="x", pady=(10, 4))
+        ttk.Label(filters, text="Period:").pack(side="left", padx=(0, 6))
+        self.dashboard_period = tk.StringVar(value="Today")
+        for title in ("Today", "Last 7 Days", "Manual Date"):
+            ttk.Radiobutton(
+                filters, text=title, value=title, variable=self.dashboard_period,
+                command=self._dashboard_period_changed
+            ).pack(side="left", padx=5)
+        self.dashboard_start_var = tk.StringVar(value=date.today().strftime("%d/%m/%Y"))
+        self.dashboard_end_var = tk.StringVar(value=date.today().strftime("%d/%m/%Y"))
+        ttk.Label(filters, text="From (DD/MM/YYYY):").pack(side="left", padx=(14, 4))
+        self.dashboard_start_entry = ttk.Entry(filters, textvariable=self.dashboard_start_var, width=12)
+        self.dashboard_start_entry.pack(side="left", padx=3)
+        ttk.Label(filters, text="To:").pack(side="left", padx=(5, 2))
+        self.dashboard_end_entry = ttk.Entry(filters, textvariable=self.dashboard_end_var, width=12)
+        self.dashboard_end_entry.pack(side="left", padx=3)
+        ttk.Button(filters, text="Apply Dates", command=self._dashboard_apply_manual).pack(side="left", padx=6)
+
+        self.dashboard_range_label = ttk.Label(f, text="")
+        self.dashboard_range_label.pack(anchor="w", pady=(2, 4))
         cards = ttk.Frame(f)
-        cards.pack(fill="x", pady=14)
+        cards.pack(fill="x", pady=10)
         self.dashboard_values = {}
         metrics = [
-            ("do_count", "Total DOs"), ("pending_ton", "Pending TON"),
-            ("builty_count", "Total Builty"), ("unbilled_count", "Unbilled Builty"),
-            ("bill_count", "Total Bills"), ("bill_total", "Bill Total (Rs.)"),
+            ("do_count", "DOs in Period"), ("pending_ton", "Pending TON"),
+            ("builty_count", "Builty in Period"), ("unbilled_count", "Unbilled Builty"),
+            ("bill_count", "Bills in Period"), ("bill_total", "Bill Total (Rs.)"),
             ("commission", "Commission (Rs.)"), ("driver_payable", "Driver Payable (Rs.)"),
         ]
         for i, (key, label) in enumerate(metrics):
@@ -129,27 +152,65 @@ class App(tk.Tk):
             self.dashboard_values[key] = val
             cards.columnconfigure(i%4, weight=1)
         ttk.Button(f, text="Refresh Dashboard", command=self.refresh_dashboard).pack(anchor="w", pady=8)
+        self._dashboard_period_changed()
+
+    def _dashboard_period_changed(self):
+        from datetime import date, timedelta
+        period = self.dashboard_period.get()
+        today = date.today()
+        if period == "Today":
+            start = end = today
+        elif period == "Last 7 Days":
+            start, end = today - timedelta(days=6), today
+        else:
+            return
+        self.dashboard_start_var.set(start.strftime("%d/%m/%Y"))
+        self.dashboard_end_var.set(end.strftime("%d/%m/%Y"))
         self.refresh_dashboard()
 
-    def refresh_dashboard(self):
+    def _dashboard_apply_manual(self):
+        from datetime import datetime
         try:
+            start = datetime.strptime(self.dashboard_start_var.get().strip(), "%d/%m/%Y").date()
+            end = datetime.strptime(self.dashboard_end_var.get().strip(), "%d/%m/%Y").date()
+            if end < start:
+                raise ValueError("To date must be on or after From date.")
+            self.dashboard_period.set("Manual Date")
+            self.refresh_dashboard()
+        except ValueError as exc:
+            messagebox.showerror("Dashboard Date", "Enter valid dates as DD/MM/YYYY and ensure To is not before From.\\n" + str(exc))
+
+    def refresh_dashboard(self):
+        from datetime import datetime
+        try:
+            start = datetime.strptime(self.dashboard_start_var.get().strip(), "%d/%m/%Y").date().isoformat()
+            end = datetime.strptime(self.dashboard_end_var.get().strip(), "%d/%m/%Y").date().isoformat()
+            # Imported DBF dates may be ISO (YYYY-MM-DD) or Indian (DD/MM/YYYY).
+            def date_expr(column):
+                return (f"(CASE WHEN length({column})>=10 AND substr({column},3,1)='/' "
+                        f"THEN substr({column},7,4)||'-'||substr({column},4,2)||'-'||substr({column},1,2) "
+                        f"ELSE substr({column},1,10) END)")
             with db() as con:
+                do_date = date_expr("do_date")
+                builty_date = date_expr("date")
+                bill_date = date_expr("bill_date")
                 values = {
-                    "do_count": con.execute("SELECT COUNT(*) FROM dos").fetchone()[0],
+                    "do_count": con.execute(f"SELECT COUNT(*) FROM dos WHERE {do_date} BETWEEN ? AND ?", (start, end)).fetchone()[0],
                     "pending_ton": con.execute("SELECT COALESCE(SUM(remaining_qty),0) FROM dos").fetchone()[0],
-                    "builty_count": con.execute("SELECT COUNT(*) FROM builtys").fetchone()[0],
-                    "unbilled_count": con.execute("SELECT COUNT(*) FROM builtys WHERE billed=0").fetchone()[0],
-                    "bill_count": con.execute("SELECT COUNT(*) FROM bills").fetchone()[0],
-                    "bill_total": con.execute("SELECT COALESCE(SUM(total),0) FROM bills").fetchone()[0],
-                    "commission": con.execute("SELECT COALESCE(SUM(commission),0) FROM builtys").fetchone()[0],
-                    "driver_payable": con.execute("SELECT COALESCE(SUM(driver_payable),0) FROM builtys").fetchone()[0],
+                    "builty_count": con.execute(f"SELECT COUNT(*) FROM builtys WHERE {builty_date} BETWEEN ? AND ?", (start, end)).fetchone()[0],
+                    "unbilled_count": con.execute(f"SELECT COUNT(*) FROM builtys WHERE billed=0 AND {builty_date} BETWEEN ? AND ?", (start, end)).fetchone()[0],
+                    "bill_count": con.execute(f"SELECT COUNT(*) FROM bills WHERE {bill_date} BETWEEN ? AND ?", (start, end)).fetchone()[0],
+                    "bill_total": con.execute(f"SELECT COALESCE(SUM(total),0) FROM bills WHERE {bill_date} BETWEEN ? AND ?", (start, end)).fetchone()[0],
+                    "commission": con.execute(f"SELECT COALESCE(SUM(commission),0) FROM builtys WHERE {builty_date} BETWEEN ? AND ?", (start, end)).fetchone()[0],
+                    "driver_payable": con.execute(f"SELECT COALESCE(SUM(driver_payable),0) FROM builtys WHERE {builty_date} BETWEEN ? AND ?", (start, end)).fetchone()[0],
                 }
             for key, value in values.items():
                 label = self.dashboard_values.get(key)
                 if label:
                     label.configure(text=f"{value:,.2f}" if key in ("pending_ton","bill_total","commission","driver_payable") else f"{value:,}")
+            self.dashboard_range_label.configure(text=f"Showing: {start} to {end} | Pending TON is current outstanding balance.")
         except Exception as exc:
-            messagebox.showerror("Dashboard", f"Could not refresh dashboard:\n{exc}")
+            messagebox.showerror("Dashboard", f"Could not refresh dashboard:\\n{exc}")
 
     # ===================== MULTI-COMPANY / IMPORT =====================
     def add_company(self):
