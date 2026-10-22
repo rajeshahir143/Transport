@@ -713,7 +713,12 @@ class App(tk.Tk):
         ttk.Checkbutton(buttons, text="Manual details", variable=self.manual_builty,
                         command=self.toggle_manual_builty).pack(side="right", padx=3)
 
-        ttk.Label(right, text="Saved Builty List", style="Head.TLabel").pack(anchor="w", pady=(6, 2))
+        saved_head = ttk.Frame(right)
+        saved_head.pack(fill="x", pady=(6, 2))
+        ttk.Label(saved_head, text="Saved Builty List", style="Head.TLabel").pack(side="left")
+        self.show_all_builtys = False
+        ttk.Button(saved_head, text="All Builty", command=self.show_all_builty_records).pack(side="right")
+        ttk.Button(saved_head, text="Selected DO Builty", command=self.show_selected_do_builtys).pack(side="right", padx=4)
         bcols = ("id", "no", "do", "party", "date", "truck", "qty", "freight", "status")
         self.bt = ttk.Treeview(left, columns=bcols, show="headings", height=6)
         for c, h, w in zip(bcols, ("ID", "Builty No.", "DO No.", "Party Name", "Date", "Truck No.", "Weight", "Amount", "Status"),
@@ -1134,33 +1139,51 @@ class App(tk.Tk):
         if "driver_payable" in self.b_vars:
             self.b_vars["driver_payable"].set(f"{payable:.2f}")
 
+    def show_all_builty_records(self):
+        self.show_all_builtys = True
+        self.refresh_builty()
+
+    def show_selected_do_builtys(self):
+        self.show_all_builtys = False
+        self.refresh_builty()
+
     def refresh_builty(self):
         if not hasattr(self, "pd"):
             return
+        selected_do_id = None
+        try:
+            selection = self.pd.selection()
+            if selection:
+                selected_do_id = int(self.pd.item(selection[0], "values")[0])
+        except (ValueError, IndexError, TypeError):
+            selected_do_id = None
         for t in (self.pd, self.bt):
             for x in t.get_children():
                 t.delete(x)
         con = db()
-        for r in con.execute(
-            "SELECT id,do_no,gmdc_do_no,customer_name,material,remaining_qty,to_place "
-            "FROM dos WHERE remaining_qty>0.000001 ORDER BY id DESC"
-        ):
-            self.pd.insert("", "end", values=(
-                r["id"], r["do_no"] or r["gmdc_do_no"] or "", r["customer_name"], r["material"],
-                f'{r["remaining_qty"]:.3f}',
-            ))
-        for r in con.execute(
-            """SELECT b.id,b.builty_no,d.do_no,d.customer_name,b.date,b.truck_no,b.qty,
-                      b.freight_amount,b.billed,b.freight_paid
-               FROM builtys b JOIN dos d ON d.id=b.do_id ORDER BY b.id DESC"""
-        ):
-            self.bt.insert("", "end", values=(
-                r["id"], r["builty_no"], r["do_no"] or "", r["customer_name"] or "",
-                r["date"], r["truck_no"], f'{r["qty"]:.3f}', f'{r["freight_amount"]:.2f}',
-                "Billed" if r["billed"] else ("Paid" if r["freight_paid"] else "Pending"),
-            ))
-        con.close()
-
+        try:
+            for r in con.execute("SELECT id,do_no,gmdc_do_no,customer_name,material,remaining_qty,to_place FROM dos WHERE remaining_qty>0.000001 ORDER BY id DESC"):
+                self.pd.insert("", "end", values=(r["id"], r["do_no"] or r["gmdc_do_no"] or "", r["customer_name"], r["material"], "{:.3f}".format(r["remaining_qty"])))
+            if selected_do_id is not None:
+                for iid in self.pd.get_children():
+                    if int(self.pd.item(iid, "values")[0]) == selected_do_id:
+                        self.pd.selection_set(iid)
+                        break
+            selected_do_id = None
+            if not getattr(self, "show_all_builtys", False) and self.pd.selection():
+                selected_do_id = int(self.pd.item(self.pd.selection()[0], "values")[0])
+            query = """SELECT b.id,b.builty_no,b.do_id,d.do_no,d.customer_name,b.date,b.truck_no,b.qty,
+                             b.freight_amount,b.billed,b.freight_paid
+                      FROM builtys b JOIN dos d ON d.id=b.do_id"""
+            params = ()
+            if selected_do_id is not None and not getattr(self, "show_all_builtys", False):
+                query += " WHERE b.do_id=?"
+                params = (selected_do_id,)
+            query += " ORDER BY b.id DESC"
+            for r in con.execute(query, params):
+                self.bt.insert("", "end", values=(r["id"], r["builty_no"], r["do_no"] or "", r["customer_name"] or "", r["date"], r["truck_no"], "{:.3f}".format(r["qty"]), "{:.2f}".format(r["freight_amount"]), "Billed" if r["billed"] else ("Paid" if r["freight_paid"] else "Pending")))
+        finally:
+            con.close()
     def create_builty(self):
         sel = self.pd.selection()
         if not sel:
