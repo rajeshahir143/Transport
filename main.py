@@ -698,7 +698,6 @@ class App(tk.Tk):
         ttk.Button(buttons, text="Next ▶", command=lambda: self.navigate_builty(1)).pack(side="left", padx=2)
         ttk.Button(buttons, text="💾 Save Builty", command=self.create_builty).pack(side="left", padx=2)
         ttk.Button(buttons, text="Print Preview", command=self.preview_selected_builty).pack(side="left", padx=2)
-        ttk.Button(buttons, text="Print / Open PDF", command=self.reprint_builty).pack(side="left", padx=2)
         ttk.Button(buttons, text="Cancel", command=self.clear_builty_form).pack(side="left", padx=2)
         self.manual_builty = tk.BooleanVar(value=False)
         ttk.Checkbutton(buttons, text="Manual details", variable=self.manual_builty,
@@ -723,8 +722,6 @@ class App(tk.Tk):
         preview_head = ttk.Frame(left)
         preview_head.pack(fill="x", pady=(3, 0))
         ttk.Button(preview_head, text="Print Preview", command=self.preview_selected_builty).pack(side="left", padx=2)
-        ttk.Button(preview_head, text="Print / Open PDF", command=self.reprint_builty).pack(side="left", padx=2)
-        ttk.Button(preview_head, text="Export PDF", command=self.reprint_builty).pack(side="left", padx=2)
         self.b_preview = tk.Text(left, wrap="word", font=("Courier New", 9), height=4, background="white",
                                  relief="solid", borderwidth=1, padx=8, pady=6)
         self.b_preview.pack(fill="x", pady=(3, 0))
