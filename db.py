@@ -35,6 +35,21 @@ def _safe_company(name):
     return value[:60] or "Radhe Radhe Developer"
 
 
+# Initialize paths before the application imports DB_PATH or calls db().
+try:
+    _initial_company = ACTIVE_COMPANY_FILE.read_text(encoding="utf-8").strip()
+except OSError:
+    _initial_company = "Radhe Radhe Developer"
+_initial_code = _safe_company(_initial_company)
+if _initial_code in COMPANY_DISPLAY_NAMES:
+    DB_PATH = COMPANIES_DIR / _initial_code / "radhe_radhe.db"
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+else:
+    DB_PATH = BASE / "radhe_radhe.db"
+BACKUP_DIR = DB_PATH.parent / "Backup"
+TEMP_BACKUP_DIR = DB_PATH.parent / "temp"
+
+
 def display_company_name(name):
     code = _safe_company(name)
     return COMPANY_DISPLAY_NAMES.get(code, code)
