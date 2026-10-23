@@ -165,6 +165,118 @@ def _validate_sql_dump(sql_path):
             pass
 
 
+def create_final_backup():
+    """Bundle the default database and every company database into one portable backup."""
+    import os
+    import tempfile
+    import zipfile
+    import json
+    stamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    output = BASE / f"RadheRadhe_FINAL_ALL_COMPANIES_{stamp}.rrbackup"
+    fd, temp_name = tempfile.mkstemp(prefix="rr_final_backup_", suffix=".tmp", dir=str(BASE))
+    os.close(fd)
+    entries = []
+    try:
+        with zipfile.ZipFile(temp_name, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            candidates = [("Radhe Radhe Developer", BASE / "radhe_radhe.db")]
+            for code, display in COMPANY_DISPLAY_NAMES.items():
+                candidates.append((display, COMPANIES_DIR / code / "radhe_radhe.db"))
+            # Include any additional company folders created by the user.
+            if COMPANIES_DIR.exists():
+                known = set(COMPANY_DISPLAY_NAMES)
+                for folder in COMPANIES_DIR.iterdir():
+                    if folder.is_dir() and folder.name not in known:
+                        candidates.append((folder.name, folder / "radhe_radhe.db"))
+            seen = set()
+            for name, path in candidates:
+                if not path.is_file() or str(path.resolve()) in seen:
+                    continue
+                seen.add(str(path.resolve()))
+                _validate_database_file(path)
+                internal = f"databases/{_safe_company(name)}/radhe_radhe.db"
+                archive.write(path, internal)
+                entries.append({"name": name, "path": internal})
+            if not entries:
+                raise ValueError("No company database files were found to back up.")
+            archive.writestr("manifest.json", json.dumps({
+                "format": "RadheRadheFinalBackup", "version": 1,
+                "created_at": datetime.now().isoformat(timespec="seconds"),
+                "companies": entries
+            }, ensure_ascii=False, indent=2))
+        # Verify archive and every included SQLite database before publishing it.
+        with zipfile.ZipFile(temp_name, "r") as check:
+            bad = check.testzip()
+            if bad:
+                raise ValueError(f"Backup archive verification failed: {bad}")
+            for item in entries:
+                fd2, staged_name = tempfile.mkstemp(prefix="rr_final_check_", suffix=".db", dir=str(BASE))
+                os.close(fd2)
+                try:
+                    Path(staged_name).write_bytes(check.read(item["path"]))
+                    _validate_database_file(staged_name)
+                finally:
+                    try: os.remove(staged_name)
+                    except OSError: pass
+        os.replace(temp_name, output)
+        return output
+    finally:
+        try:
+            if os.path.exists(temp_name): os.remove(temp_name)
+        except OSError:
+            pass
+
+
+def _restore_final_backup(source):
+    """Validate a multi-company bundle completely before replacing any live databases."""
+    import os
+    import tempfile
+    import zipfile
+    import json
+    staged_files = []
+    replacements = []
+    try:
+        with zipfile.ZipFile(source, "r") as archive:
+            manifest = json.loads(archive.read("manifest.json").decode("utf-8"))
+            if manifest.get("format") != "RadheRadheFinalBackup" or not manifest.get("companies"):
+                raise ValueError("This is not a valid Final All Companies Backup.")
+            for item in manifest["companies"]:
+                internal = item["path"]
+                if not internal.startswith("databases/") or ".." in Path(internal).parts:
+                    raise ValueError("Backup contains an unsafe database path.")
+                name = str(item["name"])
+                code = _safe_company(name)
+                if code == "Radhe Radhe Developer":
+                    destination = BASE / "radhe_radhe.db"
+                elif code in COMPANY_DISPLAY_NAMES:
+                    destination = COMPANIES_DIR / code / "radhe_radhe.db"
+                else:
+                    destination = COMPANIES_DIR / code / "radhe_radhe.db"
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                fd, staged_name = tempfile.mkstemp(prefix="rr_final_restore_", suffix=".db", dir=str(destination.parent))
+                os.close(fd)
+                staged = Path(staged_name)
+                staged.write_bytes(archive.read(internal))
+                _validate_database_file(staged)
+                staged_files.append(staged)
+                replacements.append((destination, staged))
+        # All bundle members have passed integrity checks. Safety-copy every live
+        # destination before changing any of them.
+        stamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        for destination, staged in replacements:
+            if destination.exists():
+                safety = destination.with_name(destination.stem + "_before_final_restore_" + stamp + destination.suffix)
+                _atomic_sqlite_copy(destination, safety)
+        for destination, staged in replacements:
+            os.replace(staged, destination)
+        return [destination for destination, _ in replacements]
+    finally:
+        for staged in staged_files:
+            try:
+                if staged.exists(): staged.unlink()
+            except OSError:
+                pass
+
+
 def backup_database():
     """Create retained daily .db/.sql backups beside the EXE and refresh company-specific temp copies."""
     import os
@@ -396,6 +508,8 @@ def restore_database(backup_path):
     source = Path(backup_path)
     if not source.is_file():
         raise FileNotFoundError(str(source))
+    if source.suffix.lower() == ".rrbackup":
+        return _restore_final_backup(source)
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     fd, staged_name = tempfile.mkstemp(prefix="radhe_restore_", suffix=".db", dir=str(DB_PATH.parent))
     os.close(fd)
