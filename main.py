@@ -1295,10 +1295,18 @@ class App(tk.Tk):
         con.close()
         self._print_builty_pdf(dict(row), dict(do_row))
 
+    def _current_firm(self):
+        """Return stationery details using the currently selected company name."""
+        firm = dict(FIRM)
+        selected = str(getattr(self, "company_var", tk.StringVar(value="")).get() or "").strip()
+        if selected:
+            firm["name"] = selected.upper()
+        return firm
+
     def _print_builty_pdf(self, row, do_row):
         out = EXPORT_DIR / f"Builty_{row['builty_no'] or row['id']}.pdf"
         try:
-            generate_builty_pdf(out, FIRM, row, do_row, copy_label="CONSIGNOR COPY")
+            generate_builty_pdf(out, self._current_firm(), row, do_row, copy_label="CONSIGNOR COPY")
         except Exception as e:
             messagebox.showerror("Print Builty", str(e))
             return
@@ -1576,7 +1584,7 @@ class App(tk.Tk):
         con.close()
         out = EXPORT_DIR / f"Bill_{bill_row['bill_no'] or bill_id}.pdf"
         try:
-            generate_bill_pdf(out, FIRM, bill_row, builty_rows)
+            generate_bill_pdf(out, self._current_firm(), bill_row, builty_rows)
         except Exception as e:
             messagebox.showerror("Print Bill", str(e))
         else:
@@ -1673,7 +1681,7 @@ class App(tk.Tk):
                     bill_data["weight_basis"] = "Both Less"
                 out = EXPORT_DIR / ("Bill_" + (bill_no or str(bill_id)) + ".pdf")
                 out.parent.mkdir(parents=True, exist_ok=True)
-                generate_bill_pdf(out, FIRM, bill_data, linked_rows)
+                generate_bill_pdf(out, self._current_firm(), bill_data, linked_rows)
             except Exception as exc:
                 messagebox.showerror("Reprint Bill", str(exc), parent=win)
                 return
@@ -2127,7 +2135,7 @@ class App(tk.Tk):
         } for r in rows]
         out = EXPORT_DIR / f"DebitNote_{fake_bill['bill_no']}.pdf"
         try:
-            generate_bill_pdf(out, FIRM, fake_bill, builties_pdf)
+            generate_bill_pdf(out, self._current_firm(), fake_bill, builties_pdf)
         except Exception as e:
             messagebox.showerror("Debit Note PDF", str(e))
             self.refresh_debit_note()
