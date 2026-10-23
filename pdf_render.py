@@ -126,14 +126,16 @@ def generate_builty_pdf(out_path, firm, builty, do_row, copy_label="CONSIGNOR CO
         except Exception:
             return default
 
-    # Top risk note and transporter heading
+    # Use the currently selected company's name consistently on the Builty.
+    firm_name = str(val(firm, "name", "MANSI COAL CARRIER")).strip() or "MANSI COAL CARRIER"
+    # Top risk note and company heading
     risk = Table([[P("AT OWNER'S RISK")]], colWidths=[198 * mm])
     risk.setStyle(TableStyle([("BOX",(0,0),(-1,-1),0.65,colors.black),
                               ("LEFTPADDING",(0,0),(-1,-1),4),
                               ("TOPPADDING",(0,0),(-1,-1),1),
                               ("BOTTOMPADDING",(0,0),(-1,-1),1)]))
     story.append(risk)
-    head = Table([[P(val(FIRM if "FIRM" in globals() else firm, "name", "MANSI COAL CARRIER").upper(), title)],
+    head = Table([[P(firm_name.upper(), title)],
                   [P("LIGNITE SUPPLIER & COMMISSION AGENT", subtitle)]],
                  colWidths=[198 * mm], rowHeights=[23 * mm, 12 * mm])
     head.setStyle(TableStyle([("BOX",(0,0),(-1,-1),0.65,colors.black),
@@ -229,7 +231,7 @@ def generate_builty_pdf(out_path, firm, builty, do_row, copy_label="CONSIGNOR CO
     story.append(details)
 
     terms_text = "* 200 Kg. Shortage allowed. We are not responsible for quality,\nLignite direct loading from mines.\n* GST TO BE PAID UNDER RCM"
-    terms = Table([[P(terms_text), P("For MANSI COAL CARRIER", bold)]],
+    terms = Table([[P(terms_text), P("For " + firm_name.upper(), bold)]],
                   colWidths=[124*mm, 78*mm], rowHeights=[20*mm])
     terms.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.65,colors.black),("INNERGRID",(0,0),(-1,-1),0.45,colors.black),
