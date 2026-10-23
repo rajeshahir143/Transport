@@ -73,9 +73,13 @@ def parse_pdf(path):
         r"\bTO\s*:\s*([A-Z][A-Z .&()'-]{1,50}?)(?=\s+(?:FROM\b|TRANSPORTER\b|ORDER\s+TOTAL\b|CUSTOMER\b|SCHEDULE\s+DATE\b|HSN\b)|$)"
     ).strip(" .-")
     # Keep the transporter name clean and consistent for Builty Sale Party.
-    transporter_name = grab(r"\bMANSI\s+COAL\s+CARRI(?:ER|ER)\b")
+    # Transporter is often extracted in a different PDF text order from ORDER TOTAL.
+    # Stop at the next known field/tax label so only the actual transporter value is kept.
+    transporter_name = grab(
+        r"\bTransporter\s+Name\s*[: ]+(.+?)(?=\s+(?:ORDER\s+TOTAL|Transporter\s+Code|Total\s+Qty|Description\s+of\s+Goods|Whether\s+Tax|MINE\s+CLOSURE|ROYALTY|CGST|SGST|IGST|TCS_RATE|TCS\s+RATE|Schedule\s+Date)\b|$)"
+    )
     if not transporter_name:
-        transporter_name = grab(r"\bTransporter\s+Name\s*[: ]+(.+?)(?=\s+ORDER\s+TOTAL\b|$)")
+        transporter_name = grab(r"\bMANSI\s+COAL\s+CARRIER\b")
     if transporter_name and "MANSI COAL" in transporter_name.upper():
         transporter_name = "MANSI COAL CARRIER"
 
@@ -99,6 +103,11 @@ def parse_pdf(path):
         "order_total": _num(grab(r"\bORDER TOTAL\s+([0-9,]+(?:\.[0-9]+)?)")),
         "from_place": "BHAVNAGAR", "to_place": (to_ma_dist or to_place), "to_ma_dist": to_ma_dist
     }
+    # Internal DO No. is derived from the final 5 digits of GMDC DO No.
+    # Example: 91126111018678 -> 18678.
+    gmdc_digits = re.sub(r"\D", "", data.get("gmdc_do_no", ""))
+    data["do_no"] = gmdc_digits[-5:] if len(gmdc_digits) >= 5 else ""
+
     # Keep extracted values field-specific; never place a whole PDF text block in a DO field.
     def field_value(value, max_len=100):
         value = _clean(value)
