@@ -1666,8 +1666,84 @@ class App(tk.Tk):
         ttk.Button(buttons, text="Export Builties to CSV", command=lambda: self.export_datewise("builty")).grid(row=0, column=1, padx=5, pady=5)
         ttk.Button(buttons, text="Export Bills to CSV", command=lambda: self.export_datewise("bill")).grid(row=0, column=2, padx=5, pady=5)
         ttk.Button(buttons, text="Daily Builty Report (CSV)", command=self.export_daily_builty_report).grid(row=2, column=0, columnspan=3, padx=5, pady=8, sticky="ew")
+        ttk.Button(buttons, text="View Daily Report", command=self.view_daily_report).grid(row=3, column=0, columnspan=3, padx=5, pady=5, sticky="ew")
         ttk.Button(buttons, text="Export ALL (DO + Builty + Bills)", command=lambda: self.export_datewise("all")).grid(row=1, column=0, columnspan=3, padx=5, pady=8, sticky="ew")
 
+
+
+    def view_daily_report(self):
+        """Show the daily Builty report on screen for the selected date range."""
+        start = self._parse_export_date(self.export_from.get())
+        end = self._parse_export_date(self.export_to.get())
+        if not start or not end:
+            messagebox.showerror("Daily Report", "Enter dates as DD/MM/YY or DD/MM/YYYY.")
+            return
+        if start > end:
+            messagebox.showerror("Daily Report", "From Date must be on or before To Date.")
+            return
+
+        win = tk.Toplevel(self)
+        win.title("Daily Report — Builty Summary")
+        win.geometry("1180x600")
+        win.transient(self)
+        outer = ttk.Frame(win, padding=10)
+        outer.pack(fill="both", expand=True)
+        ttk.Label(outer, text="Daily Builty Report | " + start.strftime("%d/%m/%Y") + " to " + end.strftime("%d/%m/%Y"),
+                  style="Title.TLabel").pack(anchor="w", pady=(0, 8))
+        columns = ("date", "builty", "do", "party", "vehicle", "mines", "weight", "rate", "amount")
+        headings = ("Builty Date", "Builty No.", "DO No.", "DO Party Name", "Vehicle No.", "Mines", "Weight (TON)", "Freight Rate", "Freight Amount")
+        widths = (100, 100, 100, 230, 120, 140, 100, 100, 130)
+        tree = ttk.Treeview(outer, columns=columns, show="headings")
+        for col, heading, width in zip(columns, headings, widths):
+            tree.heading(col, text=heading)
+            tree.column(col, width=width, anchor="e" if col in ("weight", "rate", "amount") else "w")
+        tree.pack(fill="both", expand=True)
+
+        con = db()
+        records = []
+        try:
+            bcols = {r["name"] for r in con.execute("PRAGMA table_info(builtys)")}
+            dcols = {r["name"] for r in con.execute("PRAGMA table_info(dos)")}
+            def expr(alias, cols, name, fallback="''"):
+                return alias + "." + name if name in cols else fallback
+            do_no = "COALESCE(" + expr("d", dcols, "do_no") + ", " + expr("d", dcols, "gmdc_do_no") + ", '')"
+            party = expr("d", dcols, "customer_name")
+            mines = expr("b", bcols, "from_place", expr("d", dcols, "from_place"))
+            weight = expr("b", bcols, "qty", "0")
+            rate = expr("b", bcols, "freight_rate", "0")
+            amount = expr("b", bcols, "freight_amount", "0")
+            query = ("SELECT b.date AS report_date, b.builty_no AS builty_no, " + do_no + " AS do_no, " +
+                     party + " AS party, " + expr("b", bcols, "truck_no") + " AS vehicle, " +
+                     mines + " AS mines, COALESCE(" + weight + ",0) AS weight, COALESCE(" + rate +
+                     ",0) AS rate, COALESCE(" + amount + ",0) AS amount FROM builtys b LEFT JOIN dos d " +
+                     "ON d.id=b.do_id ORDER BY b.date,b.id")
+            for row in con.execute(query):
+                parsed = self._parse_export_date(row["report_date"])
+                if parsed and start <= parsed <= end:
+                    record = dict(row)
+                    records.append(record)
+                    tree.insert("", "end", values=(
+                        record.get("report_date") or "", record.get("builty_no") or "",
+                        record.get("do_no") or "", record.get("party") or "",
+                        record.get("vehicle") or "", record.get("mines") or "",
+                        "{:,.3f}".format(float(record.get("weight") or 0)),
+                        "{:,.2f}".format(float(record.get("rate") or 0)),
+                        "{:,.2f}".format(float(record.get("amount") or 0))))
+        except Exception as exc:
+            win.destroy()
+            messagebox.showerror("Daily Report", str(exc))
+            return
+        finally:
+            con.close()
+
+        total_weight = sum(float(r.get("weight") or 0) for r in records)
+        total_amount = sum(float(r.get("amount") or 0) for r in records)
+        summary = ttk.Frame(outer)
+        summary.pack(fill="x", pady=(8, 0))
+        ttk.Label(summary, text="Total Builties: " + str(len(records))).pack(side="left", padx=(0, 20))
+        ttk.Label(summary, text="Total Weight: {:,.3f} TON".format(total_weight)).pack(side="left", padx=(0, 20))
+        ttk.Label(summary, text="Total Freight Amount: Rs. {:,.2f}".format(total_amount)).pack(side="left", padx=(0, 20))
+        ttk.Button(summary, text="Close", command=win.destroy).pack(side="right")
 
     def export_daily_builty_report(self):
         """Export a date-filtered Builty daily report with transport and party details."""
