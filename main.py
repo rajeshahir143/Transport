@@ -1380,6 +1380,7 @@ class App(tk.Tk):
         actions.pack(fill="x")
         ttk.Button(actions, text="Refresh", command=self.refresh_bill).pack(side="left")
         ttk.Button(actions, text="Create Bill & Print PDF", command=self.create_bill).pack(side="right")
+        ttk.Button(actions, text="All Bills / Old Bill Print", command=self.show_all_bills).pack(side="left", padx=8)
         self._bill_db_signature = None
         self.refresh_bill()
         self.after(2500, self._auto_refresh_bill)
@@ -1567,6 +1568,65 @@ class App(tk.Tk):
                 open_file(out)
         self.refresh_bill()
         self.refresh_builty()
+
+
+    def show_all_bills(self):
+        """Show saved bills and allow opening their previously generated PDF."""
+        win = tk.Toplevel(self)
+        win.title("All Bills — History / Reprint")
+        win.geometry("1050x520")
+        win.transient(self)
+        frame = ttk.Frame(win, padding=10)
+        frame.pack(fill="both", expand=True)
+        ttk.Label(frame, text="All Bills / Old Bill Print", style="Title.TLabel").pack(anchor="w", pady=(0, 8))
+        columns = ("id", "bill_no", "date", "party", "qty", "rate", "subtotal", "gst", "total", "type")
+        tree = ttk.Treeview(frame, columns=columns, show="headings", selectmode="browse")
+        headings = ("ID", "Bill No.", "Bill Date", "Party Name", "Weight", "Rate / Ton", "Amount", "GST", "Net Total", "Type")
+        widths = (55, 100, 95, 250, 90, 100, 110, 90, 110, 100)
+        for col, heading, width in zip(columns, headings, widths):
+            tree.heading(col, text=heading)
+            tree.column(col, width=width, anchor="e" if col in ("qty","rate","subtotal","gst","total") else "w")
+        tree.column("id", width=55, stretch=False)
+        tree.pack(fill="both", expand=True)
+        con = db()
+        try:
+            rows = con.execute("""SELECT id,bill_no,bill_date,customer_name,total_qty,rate_per_ton,
+                                         subtotal,(COALESCE(cgst,0)+COALESCE(sgst,0)+COALESCE(igst,0)) AS gst,
+                                         total,bill_type
+                                  FROM bills ORDER BY id DESC""").fetchall()
+            for r in rows:
+                tree.insert("", "end", values=(
+                    r["id"], r["bill_no"] or "", r["bill_date"] or "", r["customer_name"] or "",
+                    "{:.3f}".format(r["total_qty"] or 0), "{:.2f}".format(r["rate_per_ton"] or 0),
+                    "{:.2f}".format(r["subtotal"] or 0), "{:.2f}".format(r["gst"] or 0),
+                    "{:.2f}".format(r["total"] or 0), r["bill_type"] or "MATERIAL"))
+        finally:
+            con.close()
+
+        def open_selected_pdf():
+            selection = tree.selection()
+            if not selection:
+                messagebox.showwarning("All Bills", "Please select a bill first.", parent=win)
+                return
+            values = tree.item(selection[0], "values")
+            bill_id, bill_no = int(values[0]), str(values[1]).strip()
+            candidates = []
+            if bill_no:
+                candidates.append(EXPORT_DIR / f"Bill_{bill_no}.pdf")
+            candidates.append(EXPORT_DIR / f"Bill_{bill_id}.pdf")
+            pdf_path = next((p for p in candidates if p.exists()), None)
+            if pdf_path:
+                open_file(pdf_path)
+                return
+            messagebox.showwarning(
+                "PDF Not Found",
+                "આ Billનો જૂનો PDF Export folderમાં મળ્યો નથી. જૂના Billનું record હાજર છે, પરંતુ PDF ફરી બનાવવા માટે linked Builty data પરથી reprint વિકલ્પ ઉમેરવો પડશે.",
+                parent=win)
+        buttons = ttk.Frame(frame)
+        buttons.pack(fill="x", pady=(8, 0))
+        ttk.Button(buttons, text="Print Preview / Open PDF", command=open_selected_pdf).pack(side="left")
+        ttk.Button(buttons, text="Close", command=win.destroy).pack(side="right")
+        tree.bind("<Double-1>", lambda _e: open_selected_pdf())
 
     # ===================== DATE-WISE EXPORT =====================
     def export_tab(self, nb):
