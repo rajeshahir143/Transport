@@ -260,16 +260,16 @@ class App(tk.Tk):
         ttk.Button(f, text="Import", command=self.import_swastik_zip).pack(anchor="w", pady=10)
         backup_row = ttk.Frame(f)
         backup_row.pack(anchor="w", pady=8)
-        ttk.Button(backup_row, text="Restore Database Backup (.db / .sql)", command=self.restore_backup).pack(side="left", padx=(0, 8))
-        ttk.Button(backup_row, text="Create Backup Now", command=self.create_backup_now).pack(side="left")
+        ttk.Button(backup_row, text="Restore Final Backup (All Companies)", command=self.restore_backup).pack(side="left", padx=(0, 8))
+        ttk.Button(backup_row, text="Create Final Backup (All Companies)", command=self.create_backup_now).pack(side="left")
         self.import_status = ttk.Label(f, text="Automatic daily .db and .sql backups are saved beside the EXE; latest copies are saved under temp\\<company>.", wraplength=1000)
         self.import_status.pack(anchor="w", pady=8)
 
     def create_backup_now(self):
         try:
-            from db import backup_database
-            backup_database()
-            messagebox.showinfo("Backup", "Backup created in the active company's Backup and temp folders.")
+            from db import create_final_backup
+            path = create_final_backup()
+            messagebox.showinfo("Final Backup", f"All available company databases were saved in one file:\n{path}")
         except Exception as exc:
             messagebox.showerror("Backup", str(exc))
 
@@ -286,10 +286,13 @@ class App(tk.Tk):
 
     def restore_backup(self):
         from db import restore_database
-        path = filedialog.askopenfilename(title="Select SQLite backup", filetypes=[("Database backup", "*.db *.sql"), ("SQLite database", "*.db"), ("SQL dump", "*.sql"), ("All files", "*.*")])
+        path = filedialog.askopenfilename(title="Select Final All Companies Backup", filetypes=[("Final all-company backup", "*.rrbackup"), ("Legacy database backup", "*.db *.sql"), ("All files", "*.*")])
         if not path:
             return
-        if not messagebox.askyesno("Restore Backup", "Restore this backup into the currently selected company? The current database will be copied to a safety file first."):
+        prompt = ("Restore ALL company databases from this Final Backup? Current databases will be safety-copied first."
+                  if str(path).lower().endswith(".rrbackup")
+                  else "Restore this legacy backup into the currently selected company? The current database will be copied to a safety file first.")
+        if not messagebox.askyesno("Restore Backup", prompt):
             return
         try:
             restore_database(path)
