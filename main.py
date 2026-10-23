@@ -1634,10 +1634,54 @@ class App(tk.Tk):
             if pdf_path:
                 open_file(pdf_path)
                 return
-            messagebox.showwarning(
-                "PDF Not Found",
-                "આ Billનો જૂનો PDF Export folderમાં મળ્યો નથી. જૂના Billનું record હાજર છે, પરંતુ PDF ફરી બનાવવા માટે linked Builty data પરથી reprint વિકલ્પ ઉમેરવો પડશે.",
-                parent=win)
+
+            # The old PDF may have been moved/deleted. Rebuild it from the
+            # saved bill record and its linked Builty rows; do not alter records.
+            con = db()
+            try:
+                bill_record = con.execute("SELECT * FROM bills WHERE id=?", (bill_id,)).fetchone()
+                if not bill_record:
+                    messagebox.showerror("Reprint Bill", "Selected Bill record was not found.", parent=win)
+                    return
+                bill_data = dict(bill_record)
+                links = con.execute(
+                    "SELECT builty_id FROM bill_builtys WHERE bill_id=? ORDER BY rowid", (bill_id,)
+                ).fetchall()
+                if not links:
+                    messagebox.showerror("Reprint Bill",
+                        "આ Bill સાથે જોડાયેલ Builty record મળ્યો નથી. Bill record સુરક્ષિત છે; જૂના Builty links તપાસવા પડશે.",
+                        parent=win)
+                    return
+                linked_rows = []
+                for link in links:
+                    br = con.execute("""SELECT b.*, d.do_no, d.gmdc_do_no, d.material, d.from_place,
+                                               d.customer_name, d.customer_gstin, d.to_place
+                                        FROM builtys b LEFT JOIN dos d ON d.id=b.do_id
+                                        WHERE b.id=?""", (link["builty_id"],)).fetchone()
+                    if br:
+                        linked_rows.append(dict(br))
+                if not linked_rows:
+                    messagebox.showerror("Reprint Bill", "Linked Builty records could not be loaded.", parent=win)
+                    return
+                first = linked_rows[0]
+                bill_data.setdefault("party_name", bill_data.get("customer_name") or first.get("customer_name") or "")
+                bill_data.setdefault("item_name", first.get("material") or "")
+                bill_data.setdefault("mines_name", first.get("from_place") or "")
+                bill_data.setdefault("do_no", first.get("do_no") or first.get("gmdc_do_no") or "")
+                bill_data.setdefault("customer_gstin", first.get("customer_gstin") or "")
+                if not bill_data.get("weight_basis"):
+                    bill_data["weight_basis"] = "Both Less"
+                out = EXPORT_DIR / ("Bill_" + (bill_no or str(bill_id)) + ".pdf")
+                out.parent.mkdir(parents=True, exist_ok=True)
+                generate_bill_pdf(out, FIRM, bill_data, linked_rows)
+            except Exception as exc:
+                messagebox.showerror("Reprint Bill", str(exc), parent=win)
+                return
+            finally:
+                con.close()
+            if out.exists():
+                messagebox.showinfo("Reprint Bill", "Old Bill PDF was recreated from saved Bill and linked Builty data.", parent=win)
+                open_file(out)
         buttons = ttk.Frame(frame)
         buttons.pack(fill="x", pady=(8, 0))
         ttk.Button(buttons, text="Print Preview / Open PDF", command=open_selected_pdf).pack(side="left")
