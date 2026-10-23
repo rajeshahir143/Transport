@@ -187,9 +187,15 @@ class App(tk.Tk):
             end = datetime.strptime(self.dashboard_end_var.get().strip(), "%d/%m/%Y").date().isoformat()
             # Imported DBF dates may be ISO (YYYY-MM-DD) or Indian (DD/MM/YYYY).
             def date_expr(column):
-                return (f"(CASE WHEN length({column})>=10 AND substr({column},3,1)='/' "
-                        f"THEN substr({column},7,4)||'-'||substr({column},4,2)||'-'||substr({column},1,2) "
-                        f"ELSE substr({column},1,10) END)")
+                # App records commonly use DD/MM/YY; imported records may use
+                # DD/MM/YYYY or ISO YYYY-MM-DD. Normalize all three before filtering.
+                return (f"(CASE "
+                        f"WHEN {column} IS NULL OR trim({column})='' THEN '' "
+                        f"WHEN substr({column},3,1)='/' AND length(trim({column}))=8 "
+                        f"THEN '20'||substr(trim({column}),7,2)||'-'||substr(trim({column}),4,2)||'-'||substr(trim({column}),1,2) "
+                        f"WHEN substr({column},3,1)='/' AND length(trim({column}))>=10 "
+                        f"THEN substr(trim({column}),7,4)||'-'||substr(trim({column}),4,2)||'-'||substr(trim({column}),1,2) "
+                        f"ELSE substr(trim({column}),1,10) END)")
             with db() as con:
                 do_date = date_expr("do_date")
                 builty_date = date_expr("date")
