@@ -187,15 +187,22 @@ class App(tk.Tk):
             end = datetime.strptime(self.dashboard_end_var.get().strip(), "%d/%m/%Y").date().isoformat()
             # Imported DBF dates may be ISO (YYYY-MM-DD) or Indian (DD/MM/YYYY).
             def date_expr(column):
-                # App records commonly use DD/MM/YY; imported records may use
-                # DD/MM/YYYY or ISO YYYY-MM-DD. Normalize all three before filtering.
+                # Normalize ISO, DD/MM/YYYY, DD/MM/YY, DD-MM-YYYY and DD-MM-YY.
+                # App Bill dates are often DD/MM/YY; SQLite string comparison on
+                # those values is incorrect unless they are converted first.
+                value = f"trim({column})"
+                sep = f"substr({value},3,1)"
+                day = f"substr({value},1,2)"
+                month = f"substr({value},4,2)"
+                year4 = f"substr({value},7,4)"
+                year2 = f"substr({value},7,2)"
                 return (f"(CASE "
-                        f"WHEN {column} IS NULL OR trim({column})='' THEN '' "
-                        f"WHEN substr({column},3,1)='/' AND length(trim({column}))=8 "
-                        f"THEN '20'||substr(trim({column}),7,2)||'-'||substr(trim({column}),4,2)||'-'||substr(trim({column}),1,2) "
-                        f"WHEN substr({column},3,1)='/' AND length(trim({column}))>=10 "
-                        f"THEN substr(trim({column}),7,4)||'-'||substr(trim({column}),4,2)||'-'||substr(trim({column}),1,2) "
-                        f"ELSE substr(trim({column}),1,10) END)")
+                        f"WHEN {column} IS NULL OR {value}='' THEN '' "
+                        f"WHEN {sep} IN ('/','-') AND length({value})=8 "
+                        f"THEN '20'||{year2}||'-'||{month}||'-'||{day} "
+                        f"WHEN {sep} IN ('/','-') AND length({value})>=10 "
+                        f"THEN {year4}||'-'||{month}||'-'||{day} "
+                        f"ELSE substr({value},1,10) END)")
             with db() as con:
                 do_date = date_expr("do_date")
                 builty_date = date_expr("date")
