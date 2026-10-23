@@ -267,7 +267,26 @@ def _restore_final_backup(source):
                 safety = destination.with_name(destination.stem + "_before_final_restore_" + stamp + destination.suffix)
                 _atomic_sqlite_copy(destination, safety)
         for destination, staged in replacements:
-            os.replace(staged, destination)
+            try:
+                os.replace(staged, destination)
+            except PermissionError:
+                # Windows may deny replacing a live DB file while the GUI or
+                # SQLite has a handle open. Restore through SQLite's backup API
+                # into the existing file instead of replacing its filesystem entry.
+                source_con = target_con = None
+                try:
+                    source_con = sqlite3.connect(str(staged), timeout=30)
+                    target_con = sqlite3.connect(str(destination), timeout=30)
+                    source_con.backup(target_con, pages=256, sleep=0.05)
+                    target_con.commit()
+                    result = target_con.execute("PRAGMA quick_check").fetchone()
+                    if not result or result[0] != "ok":
+                        raise ValueError(f"Restored database validation failed: {destination}")
+                finally:
+                    if target_con is not None:
+                        target_con.close()
+                    if source_con is not None:
+                        source_con.close()
         return [destination for destination, _ in replacements]
     finally:
         for staged in staged_files:
