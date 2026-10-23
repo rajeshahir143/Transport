@@ -265,7 +265,7 @@ def generate_bill_pdf(out_path, firm, bill, builties):
 
     bill_type = str(bill.get("bill_type") or "MATERIAL").upper()
     invoice_label = "FINAL BILL / TAX INVOICE" if bill_type == "MATERIAL" else "DEBIT NOTE — FREIGHT"
-    firm_name = firm.get("name") or "MANSI COAL CARRIER"
+    firm_name = str(firm.get("name") or "MANSI COAL CARRIER").strip().upper()
 
     # Prevent the entire extracted DO PDF text from appearing in a single invoice cell.
     # The bill should show concise, readable values sourced from the linked Builty rows.
