@@ -1959,12 +1959,12 @@ class App(tk.Tk):
         nb.add(f, text="4 · Freight Paid")
         ttk.Label(f, text="Select a Builty and record freight payment", style="Head.TLabel").pack(anchor="w")
         self.fp_tv = ttk.Treeview(
-            f, columns=("id", "builty", "truck", "date", "qty", "freight", "paid"),
+            f, columns=("id", "builty", "do_no", "truck", "date", "qty", "owner", "payable", "paid"),
             show="headings", height=12,
         )
-        for c, h, w in zip(("id", "builty", "truck", "date", "qty", "freight", "paid"),
-                           ("ID", "Builty No", "Truck", "Date", "Qty", "Freight", "Status"),
-                           [50, 120, 110, 110, 90, 110, 90]):
+        for c, h, w in zip(("id", "builty", "do_no", "truck", "date", "qty", "owner", "payable", "paid"),
+                           ("ID", "Builty No", "DO No", "Truck", "Date", "Qty", "Owner Name", "Driver Payable (Rs.)", "Status"),
+                           [45, 95, 90, 105, 95, 75, 150, 140, 75]):
             self.fp_tv.heading(c, text=h)
             self.fp_tv.column(c, width=w)
         self.fp_tv.pack(fill="both", expand=True, pady=6)
@@ -1993,13 +1993,17 @@ class App(tk.Tk):
             self.fp_tv.delete(x)
         con = db()
         for r in con.execute(
-            """SELECT id,builty_no,truck_no,date,qty,freight_amount,freight_paid
-               FROM builtys ORDER BY id DESC"""
+            """SELECT b.id,b.builty_no,COALESCE(d.do_no,d.gmdc_do_no,'') AS do_no,
+                      b.truck_no,b.date,b.qty,COALESCE(b.owner_name,'') AS owner_name,
+                      COALESCE(b.driver_payable,b.freight_amount,0) AS driver_payable,
+                      b.freight_paid
+               FROM builtys b LEFT JOIN dos d ON d.id=b.do_id
+               ORDER BY b.id DESC"""
         ):
             self.fp_tv.insert("", "end", values=(
-                r["id"], r["builty_no"], r["truck_no"], r["date"],
-                f'{r["qty"]:.3f}', f'{r["freight_amount"]:.2f}',
-                "Paid" if r["freight_paid"] else "Due",
+                r["id"], r["builty_no"], r["do_no"], r["truck_no"], r["date"],
+                "{:.3f}".format(r["qty"]), r["owner_name"],
+                "{:.2f}".format(r["driver_payable"]), "Paid" if r["freight_paid"] else "Due",
             ))
         con.close()
 
@@ -2010,7 +2014,7 @@ class App(tk.Tk):
             return
         values = self.fp_tv.item(sel[0], "values")
         try:
-            self.fp_vars["amount"].set("{:.2f}".format(float(values[5] or 0)))
+            self.fp_vars["amount"].set("{:.2f}".format(float(values[7] or 0)))
         except (ValueError, TypeError, IndexError):
             self.fp_vars["amount"].set("0.00")
         if not self.fp_vars["pay_date"].get().strip():
