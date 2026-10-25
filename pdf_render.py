@@ -407,3 +407,37 @@ def generate_bill_pdf(out_path, firm, bill, builties):
     story.append(sig)
     doc.build(story)
     return str(out_path)
+
+
+def generate_chit_pdf(out_path, firm, builty, do_row):
+    """Print the compact mine loading chit requested by the user."""
+    doc = SimpleDocTemplate(str(out_path), pagesize=A4, leftMargin=14*mm, rightMargin=14*mm, topMargin=12*mm, bottomMargin=12*mm)
+    normal = ParagraphStyle("ChitNormal", parent=CELL, fontSize=11, leading=15)
+    bold = ParagraphStyle("ChitBold", parent=normal, fontName="Helvetica-Bold")
+    title = ParagraphStyle("ChitTitle", parent=normal, fontName="Helvetica-Bold", fontSize=21, leading=25, alignment=1)
+    sub = ParagraphStyle("ChitSub", parent=normal, fontSize=10, alignment=1)
+    def para(v, style=normal): return Paragraph(_safe(v, 250), style)
+    firm_name = str(firm.get("name") or "MANSI COAL CARRIER").strip().upper()
+    rows = [
+        [para(firm_name, title)],
+        [para("TRANSPORT CONTRACTOR AND LIGNITE CARRIER AGENT", sub)],
+        [para(str(firm.get("address") or "Office No. 1, Bhuj, Kutch"), sub)],
+    ]
+    header = Table(rows, colWidths=[180*mm])
+    header.setStyle(TableStyle([("BOX",(0,0),(-1,-1),1,colors.black),("LINEBELOW",(0,0),(-1,0),1,colors.black),("TOPPADDING",(0,0),(-1,-1),5),("BOTTOMPADDING",(0,0),(-1,-1),5)]))
+    data = [
+        [para("No.: " + str(builty.get("builty_no") or ""), bold), para("Date: " + str(builty.get("date") or ""), bold)],
+        [para("CODE NO.: M595", bold), para("24 TON / A GRADE", bold)],
+        [para("Party Name :", bold), para(do_row.get("customer_name") or builty.get("consignee") or "")],
+        [para("Village Name :", bold), para(do_row.get("to_place") or builty.get("to_place") or builty.get("center_name") or "")],
+        [para("D.O. No. :", bold), para(do_row.get("do_no") or do_row.get("gmdc_do_no") or "")],
+        [para("Reg. No. :", bold), para(do_row.get("registration_no") or do_row.get("regi_no") or do_row.get("reg_no") or "")],
+        [para("D.O. Date :", bold), para(do_row.get("date") or do_row.get("do_date") or "")],
+        [para("Truck Number :", bold), para(builty.get("truck_no") or builty.get("vehicle_no") or "")],
+        [para("Driver Instructions :", bold), para("Mine to destination loading/transport instructions as applicable.")],
+    ]
+    details = Table(data, colWidths=[47*mm, 133*mm], rowHeights=[10*mm,10*mm,12*mm,12*mm,12*mm,12*mm,12*mm,12*mm,25*mm])
+    details.setStyle(TableStyle([("BOX",(0,0),(-1,-1),0.8,colors.black),("INNERGRID",(0,0),(-1,-1),0.6,colors.black),("VALIGN",(0,0),(-1,-1),"MIDDLE"),("LEFTPADDING",(0,0),(-1,-1),5),("RIGHTPADDING",(0,0),(-1,-1),5)]))
+    story = [header, Spacer(1, 7*mm), details, Spacer(1, 20*mm), Paragraph("For " + _safe(firm_name), bold)]
+    doc.build(story)
+    return str(out_path)
