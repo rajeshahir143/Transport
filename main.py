@@ -1972,10 +1972,16 @@ class App(tk.Tk):
         form = ttk.LabelFrame(f, text="Payment Entry", padding=10)
         form.pack(fill="x", pady=6)
         self.fp_vars = {k: tk.StringVar() for k in ("pay_date", "amount", "mode", "reference_no", "remarks")}
-        for i, (lab, k) in enumerate([("Date", "pay_date"), ("Amount", "amount"),
-                                      ("Mode", "mode"), ("Ref No", "reference_no"), ("Remarks", "remarks")]):
+        self.fp_vars["pay_date"].set(datetime.now().strftime("%d/%m/%Y"))
+        fields = [("Date", "pay_date"), ("Amount", "amount"), ("Mode", "mode"), ("Ref No", "reference_no"), ("Remarks", "remarks")]
+        for i, (lab, k) in enumerate(fields):
             ttk.Label(form, text=lab).grid(row=0, column=i * 2, padx=4, sticky="w")
-            ttk.Entry(form, textvariable=self.fp_vars[k], width=18).grid(row=0, column=i * 2 + 1, padx=4)
+            if k == "mode":
+                ttk.Combobox(form, textvariable=self.fp_vars[k], values=("Cash", "UPI", "Cheque"), width=15, state="readonly").grid(row=0, column=i * 2 + 1, padx=4)
+                self.fp_vars[k].set("Cash")
+            else:
+                ttk.Entry(form, textvariable=self.fp_vars[k], width=18).grid(row=0, column=i * 2 + 1, padx=4)
+        self.fp_tv.bind("<<TreeviewSelect>>", self.on_freight_paid_builty_select)
         ttk.Button(form, text="Save Payment", command=self.save_freight_paid).grid(row=0, column=10, padx=10)
         ttk.Button(f, text="Refresh", command=self.refresh_freight_paid).pack(anchor="e")
         self.refresh_freight_paid()
@@ -1996,6 +2002,19 @@ class App(tk.Tk):
                 "Paid" if r["freight_paid"] else "Due",
             ))
         con.close()
+
+    def on_freight_paid_builty_select(self, _event=None):
+        """Fill payment amount and date when a Builty is selected."""
+        sel = self.fp_tv.selection()
+        if not sel:
+            return
+        values = self.fp_tv.item(sel[0], "values")
+        try:
+            self.fp_vars["amount"].set("{:.2f}".format(float(values[5] or 0)))
+        except (ValueError, TypeError, IndexError):
+            self.fp_vars["amount"].set("0.00")
+        if not self.fp_vars["pay_date"].get().strip():
+            self.fp_vars["pay_date"].set(datetime.now().strftime("%d/%m/%Y"))
 
     def save_freight_paid(self):
         sel = self.fp_tv.selection()
