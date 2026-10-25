@@ -628,7 +628,7 @@ class App(tk.Tk):
         form = ttk.LabelFrame(left, text="Builty Details", padding=8)
         form.pack(fill="x", pady=(6, 5))
         self.b_vars = {k: tk.StringVar() for k in (
-            "builty_no", "truck_no", "date", "qty", "do_no", "from_place", "to_place",
+            "builty_no", "builty_series", "weight_basis", "truck_no", "date", "qty", "do_no", "from_place", "to_place",
             "consignee", "driver_name", "mobile_no", "owner_name", "address",
             "challan_no", "quota_date", "freight_rate", "freight_amount", "ewaybill",
             "pay_status", "cgst_rate", "sgst_rate", "remarks", "sale_party", "supply_party",
@@ -660,11 +660,11 @@ class App(tk.Tk):
         transport = ttk.LabelFrame(left, text="Transport Details", padding=7)
         transport.pack(fill="x", pady=4)
         fields = [
-            ("Builty No.", "builty_no"), ("Date", "date"), ("DO No.", "do_no"),
-            ("Vehicle No.", "truck_no"), ("Driver Name", "driver_name"), ("Driver Mobile No.", "driver_mobile"),
-            ("Truck Owner Name", "owner_name"), ("Address", "address"), ("Challan No.", "challan_no"),
-            ("Select Quota", "quota_select"), ("Despatch Weight", "despatch_weight"),
-            ("Receipt Weight", "receipt_weight"), ("Actual Weight (TON)", "qty"),
+            ("Builty Series", "builty_series"), ("Builty No. (Manual)", "builty_no"), ("Date", "date"),
+            ("DO No.", "do_no"), ("Vehicle No.", "truck_no"), ("Driver Name", "driver_name"),
+            ("Driver Mobile No.", "driver_mobile"), ("Truck Owner Name", "owner_name"), ("Address", "address"),
+            ("Challan No.", "challan_no"), ("Select Quota", "quota_select"), ("Weight Basis", "weight_basis"),
+            ("Despatch Weight", "despatch_weight"), ("Receipt Weight", "receipt_weight"), ("Actual Weight (TON)", "qty"),
             ("Freight Rate", "freight_rate"), ("Freight (Rs.)", "freight_amount"),
             ("Sale Rate", "sale_rate"), ("Sale Amount", "sale_amount"), ("Commission Rs.", "commission"),
             ("Receipt Date", "receipt_date"), ("Driver Payable (Rs.)", "driver_payable"),
@@ -676,6 +676,9 @@ class App(tk.Tk):
                 ent = ttk.Combobox(transport, textvariable=self.b_vars[key], width=15, state="readonly")
                 self._quota_combo = ent
                 ent.bind("<<ComboboxSelected>>", self._on_quota_selected)
+            elif key == "weight_basis":
+                ent = ttk.Combobox(transport, textvariable=self.b_vars[key], values=("Despatch", "Receipt", "Both Less"), width=15, state="readonly")
+                ent.bind("<<ComboboxSelected>>", self._on_builty_weight_change)
             else:
                 ent = ttk.Entry(transport, textvariable=self.b_vars[key], width=17)
             ent.grid(row=r, column=col*2+1, padx=4, pady=3, sticky="ew")
@@ -1133,6 +1136,15 @@ class App(tk.Tk):
         self._recalc_freight()
         self.update_builty_preview()
 
+    def _on_builty_weight_change(self, _event=None):
+        basis = (self.b_vars["weight_basis"].get() or "Despatch").strip()
+        dispatch = _f(self.b_vars["despatch_weight"].get())
+        receipt = _f(self.b_vars["receipt_weight"].get())
+        if basis == "Despatch": actual = dispatch
+        elif basis == "Receipt": actual = receipt
+        else: actual = receipt - dispatch
+        self.b_vars["qty"].set("{:.3f}".format(max(0.0, actual)))
+
     def _recalc_freight(self):
         q = _f(self.b_vars["qty"].get())
         r = _f(self.b_vars["freight_rate"].get())
@@ -1211,7 +1223,7 @@ class App(tk.Tk):
                 """INSERT INTO builtys(builty_no,do_id,truck_no,date,qty,freight_rate,freight_amount,
                    from_place,to_place,consignor,consignee,driver_name,ewaybill,remarks)
                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                (self.b_vars["builty_no"].get().strip(), do_id,
+                ("{} {}".format(self.b_vars["builty_series"].get().strip(), self.b_vars["builty_no"].get().strip()).strip(), do_id,
                  self.b_vars["truck_no"].get().strip(), self.b_vars["date"].get().strip(),
                  qty, rate, freight,
                  self.b_vars["from_place"].get().strip(), self.b_vars["to_place"].get().strip(),
