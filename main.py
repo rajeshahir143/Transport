@@ -19,7 +19,7 @@ from tkinter import filedialog, messagebox, ttk
 
 from db import db, init_db, lookup_rate, DB_PATH, list_companies, get_active_company, set_active_company, BASE
 from pdf_parser import parse_pdf
-from pdf_render import generate_builty_pdf, generate_bill_pdf
+from pdf_render import generate_builty_pdf, generate_bill_pdf, generate_chit_pdf
 
 APP = "Radhe Radhe Developer — PDF DO / Builty / Bill"
 BASE = Path(__file__).resolve().parent
@@ -717,6 +717,7 @@ class App(tk.Tk):
         ttk.Button(buttons, text="Next ▶", command=lambda: self.navigate_builty(1)).pack(side="left", padx=2)
         ttk.Button(buttons, text="💾 Save Builty", command=self.create_builty).pack(side="left", padx=2)
         ttk.Button(buttons, text="Print Preview", command=self.preview_selected_builty).pack(side="left", padx=2)
+        ttk.Button(buttons, text="Chit Print", command=self.print_selected_chit).pack(side="left", padx=2)
         ttk.Button(buttons, text="Cancel", command=self.clear_builty_form).pack(side="left", padx=2)
         self.manual_builty = tk.BooleanVar(value=False)
         ttk.Checkbutton(buttons, text="Manual details", variable=self.manual_builty,
@@ -1315,6 +1316,27 @@ class App(tk.Tk):
             firm["name"] = selected.upper()
         return firm
 
+    def print_selected_chit(self):
+        sel = self.bt.selection() if hasattr(self, "bt") else ()
+        if not sel:
+            messagebox.showwarning("Chit Print", "Saved Builty mathi Builty select karo.")
+            return
+        b_id = int(self.bt.item(sel[0])["values"][0])
+        con = db()
+        row = con.execute("SELECT * FROM builtys WHERE id=?", (b_id,)).fetchone()
+        do_row = con.execute("SELECT * FROM dos WHERE id=?", (row["do_id"],)).fetchone() if row else None
+        con.close()
+        if not row or not do_row:
+            messagebox.showerror("Chit Print", "Builty sathe linked DO record malyo nathi.")
+            return
+        out = EXPORT_DIR / ("Chit_" + str(row["builty_no"] or row["id"]).replace("/", "_") + ".pdf")
+        try:
+            generate_chit_pdf(out, self._current_firm(), dict(row), dict(do_row))
+        except Exception as e:
+            messagebox.showerror("Chit Print", str(e))
+            return
+        if messagebox.askyesno("Chit Print", f"Chit saved: {out.name}\\n\\nOpen it now to print?"):
+            open_file(out)
     def _print_builty_pdf(self, row, do_row):
         out = EXPORT_DIR / f"Builty_{row['builty_no'] or row['id']}.pdf"
         try:
