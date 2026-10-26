@@ -286,7 +286,7 @@ def generate_bill_pdf(out_path, firm, bill, builties):
             display_bill_date = display_bill_date[8:10] + "/" + display_bill_date[5:7] + "/" + display_bill_date[2:4]
     except (TypeError, ValueError):
         pass
-    invoice_title = ParagraphStyle("BillInvoiceTitle", parent=title, fontSize=13, leading=15)
+    invoice_title = ParagraphStyle("BillInvoiceTitle", parent=title, fontSize=13, leading=15, alignment=1)
     company_head = Table([
         [para(firm_name, title), ""],
         [para("GSTIN : " + str(firm.get("gstin") or ""), bold),
