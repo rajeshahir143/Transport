@@ -345,19 +345,18 @@ def generate_bill_pdf(out_path, firm, bill, builties):
     cgst, sgst, igst = num(bill.get("cgst")), num(bill.get("sgst")), num(bill.get("igst"))
     round_off = num(bill.get("round_off"))
     total = num(bill.get("total")) or subtotal + cgst + sgst + igst + round_off
-    terms = "Terms & Conditions :\nSubject to Bhuj Jurisdiction.\nGST - RCM not apply if otherwise agreed.\n* Paid By Receiver"
-    bank = str(firm.get("bank_details") or "Bank Details :")
+    bank = str(firm.get("bank_details") or "").strip()
     terms_box = Table([
-        [para("Terms & Conditions :", bold)],
-        [para("Subject to Bhuj Jurisdiction.", normal)],
-        [para("GST - RCM not apply if otherwise agreed.", normal)],
-        [para("* Paid By Receiver", normal)],
-    ], colWidths=[96*mm], rowHeights=[8*mm,7*mm,7*mm,7*mm])
+        [para("Terms &amp; Conditions", bold)],
+        [para("1. Subject to Bhuj Jurisdiction.", normal)],
+        [para("2. GST - RCM not apply if otherwise agreed.", normal)],
+        [para("3. Paid By Receiver", normal)],
+    ], colWidths=[96*mm], rowHeights=[7*mm,7*mm,7*mm,7*mm])
     terms_box.setStyle(TableStyle([
-        ("BOX",(0,0),(-1,-1),0.6,colors.black),
-        ("INNERGRID",(0,0),(-1,-1),0.3,colors.black),
+        ("BOX",(0,0),(-1,-1),0.7,colors.black),
+        ("LINEBELOW",(0,0),(-1,0),0.5,colors.black),
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
-        ("LEFTPADDING",(0,0),(-1,-1),4), ("RIGHTPADDING",(0,0),(-1,-1),4),
+        ("LEFTPADDING",(0,0),(-1,-1),5), ("RIGHTPADDING",(0,0),(-1,-1),4),
         ("TOPPADDING",(0,0),(-1,-1),1), ("BOTTOMPADDING",(0,0),(-1,-1),1),
     ]))
     totals = Table([
@@ -377,7 +376,18 @@ def generate_bill_pdf(out_path, firm, bill, builties):
     ]))
     signature = Table([["", para("For " + firm_name, bold)]], colWidths=[122*mm, 60*mm], rowHeights=[14*mm])
     signature.setStyle(TableStyle([("ALIGN",(1,0),(1,0),"RIGHT"),("VALIGN",(0,0),(-1,-1),"BOTTOM"),("FONTNAME",(1,0),(1,0),"Helvetica-Bold")]))
-    story.extend([totals, signature])
+    story.extend([totals, Spacer(1, 3)])
+    bank_text = bank if bank else "Bank Details :"
+    bank_box = Table([[para("BANK DETAILS", bold)], [para(bank_text, normal)]],
+                     colWidths=[182*mm], rowHeights=[7*mm, 12*mm])
+    bank_box.setStyle(TableStyle([
+        ("BOX",(0,0),(-1,-1),0.7,colors.black),
+        ("LINEBELOW",(0,0),(-1,0),0.5,colors.black),
+        ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
+        ("LEFTPADDING",(0,0),(-1,-1),5), ("RIGHTPADDING",(0,0),(-1,-1),5),
+        ("TOPPADDING",(0,0),(-1,-1),1), ("BOTTOMPADDING",(0,0),(-1,-1),1),
+    ]))
+    story.extend([bank_box, signature])
     doc.build(story)
     return str(out_path)
 
