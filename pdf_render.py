@@ -9,7 +9,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm
 from xml.sax.saxutils import escape
 from reportlab.platypus import (
-    SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer,
+    SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Flowable,
 )
 
 ACCENT = colors.HexColor("#B22222")  # firebrick — classic transporter stationery
@@ -353,11 +353,17 @@ def generate_bill_pdf(out_path, firm, bill, builties):
     return str(out_path)
 
 
-class _ChitTruck:
+class _ChitTruck(Flowable):
     """Small vector truck emblem for the loading chit header."""
+    def __init__(self):
+        super().__init__()
+        self.width = 32*mm
+        self.height = 25*mm
     def wrap(self, availWidth, availHeight):
-        return (32*mm, 25*mm)
-    def drawOn(self, canvas, x, y, _sW=0):
+        return (self.width, self.height)
+    def draw(self):
+        canvas = self.canv
+        x, y = 0, 0
         canvas.saveState()
         canvas.setLineWidth(1.1)
         canvas.rect(x+2*mm, y+7*mm, 23*mm, 10*mm)
@@ -373,6 +379,7 @@ class _ChitTruck:
 def generate_chit_pdf(out_path, firm, builty, do_row):
     """Gujarati mine-loading chit; use a Gujarati-capable, HarfBuzz-shaped font."""
     import os
+    import sys
     from pathlib import Path
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
@@ -380,16 +387,20 @@ def generate_chit_pdf(out_path, firm, builty, do_row):
     font_regular = "Helvetica"
     font_bold = "Helvetica-Bold"
     # Windows Nirmala UI contains Gujarati glyphs; use HarfBuzz shaping for conjuncts.
+    bundle_root = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
     font_candidates = [
+        bundle_root / "fonts" / "NotoSansGujarati.ttf",
+        Path(__file__).resolve().parent / "fonts" / "NotoSansGujarati.ttf",
         Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts" / "Nirmala.ttf",
         Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts" / "NirmalaS.ttf",
-        Path(__file__).resolve().parent / "fonts" / "NotoSansGujarati-Regular.ttf",
     ]
     bold_candidates = [
         Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts" / "NirmalaB.ttf",
         Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts" / "NirmalaS-Bold.ttf",
     ]
     font_path = next((p for p in font_candidates if p.is_file()), None)
+    if not font_path:
+        raise RuntimeError("Gujarati font file is missing. Rebuild the app with fonts/NotoSansGujarati.ttf included.")
     if font_path:
         try:
             if "ChitGujarati" not in pdfmetrics.getRegisteredFontNames():
