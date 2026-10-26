@@ -292,7 +292,8 @@ def generate_bill_pdf(out_path, firm, bill, builties):
         ("BOTTOMPADDING",(0,0),(-1,-1),1),
     ]))
     story.extend([party_block, Spacer(1, 3)])
-    heads = ["Sr.", "Date", "LR No.", "DO No.", "Truck No.", "Despatch\nWt. (MT)", "Receipt\nWt. (MT)", "Rate Rs.<br/>Rate / TON", "Amount<br/>Rs."]
+    story.append(para("Rate Rs. (rate entered on this Bill)", normal))
+    heads = ["Sr.", "Date", "LR No.", "DO No.", "Truck No.", "Despatch\nWt. (MT)", "Receipt\nWt. (MT)", "Rate / TON", "Amount Rs."]
     rows = [[para(x, center if i != 0 else bold) for i,x in enumerate(heads)]]
     sum_desp = sum_rcpt = sum_amount = 0.0
     for i, item in enumerate(builties, 1):
