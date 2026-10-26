@@ -301,8 +301,10 @@ def generate_bill_pdf(out_path, firm, bill, builties):
     ]))
     story.extend([party_block, Spacer(1, 3)])
     story.append(para("Rate Rs. (rate entered on this Bill)", normal))
-    heads = ["Sr.", "Date", "LR No.", "DO No.", "Truck No.", "Despatch\nWt. (MT)", "Receipt\nWt. (MT)", "Rate / TON", "Amount Rs."]
-    rows = [[para(x, center if i != 0 else bold) for i,x in enumerate(heads)]]
+    heads = ["Sr.", "Date", "LR No.", "DO No.", "Truck No.", "Despatch\\nWt. (MT)", "Receipt\\nWt. (MT)", "Rate / TON", "Amount Rs."]
+    header_style = ParagraphStyle("BillColumnHeaderBold", parent=center, fontName="Helvetica-Bold",
+                                  fontSize=8.5, leading=10, textColor=colors.black, alignment=1, wordWrap="CJK")
+    rows = [[para(x, header_style) for x in heads]]
     sum_desp = sum_rcpt = sum_amount = 0.0
     for i, item in enumerate(builties, 1):
         desp = num(item.get("despatch_weight") or item.get("qty"))
@@ -327,7 +329,9 @@ def generate_bill_pdf(out_path, firm, bill, builties):
     table = Table(rows, colWidths=[9*mm, 18*mm, 16*mm, 19*mm, 23*mm, 19*mm, 19*mm, 30*mm, 29*mm],
                   rowHeights=[10*mm]+[7.2*mm]*(len(rows)-2)+[8*mm], repeatRows=1)
     table.setStyle(TableStyle([
-        ("BOX",(0,0),(-1,-1),0.65,colors.black),("INNERGRID",(0,0),(-1,-1),0.35,colors.black),
+        ("BOX",(0,0),(-1,-1),0.75,colors.black),("INNERGRID",(0,0),(-1,-1),0.45,colors.black),
+        ("BACKGROUND",(0,0),(-1,0),colors.whitesmoke),
+        ("FONTNAME",(0,0),(-1,0),"Helvetica-Bold"),("FONTSIZE",(0,0),(-1,0),8.5),
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),("ALIGN",(0,0),(-1,-1),"CENTER"),
         ("LEFTPADDING",(0,0),(-1,-1),2),("RIGHTPADDING",(0,0),(-1,-1),2),
         ("TOPPADDING",(0,0),(-1,-1),1),("BOTTOMPADDING",(0,0),(-1,-1),1),
