@@ -281,13 +281,14 @@ def generate_bill_pdf(out_path, firm, bill, builties):
         ("LEFTPADDING",(0,0),(-1,-1),4), ("RIGHTPADDING",(0,0),(-1,-1),4),
     ]))
     company_head = Table([
-        [para(firm_name, title), para("Bill No. : " + str(bill_no), bold)],
-        [para("GSTIN : " + str(firm.get("gstin") or ""), bold), para("", normal)],
+        [para(firm_name, title), para("GSTIN : " + str(firm.get("gstin") or ""), bold)],
+        [para("Bill No. : " + str(bill_no), bold), para("", normal)],
     ], colWidths=[122*mm, 60*mm], rowHeights=[10*mm, 7*mm])
     company_head.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.8,colors.black), ("LINEBELOW",(0,0),(-1,0),0.45,colors.black),
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"), ("ALIGN",(0,0),(0,0),"CENTER"),
-        ("ALIGN",(1,0),(1,-1),"RIGHT"), ("FONTNAME",(1,0),(1,-1),"Helvetica-Bold"),
+        ("ALIGN",(0,0),(0,1),"LEFT"), ("ALIGN",(1,0),(1,1),"RIGHT"),
+        ("FONTNAME",(0,1),(-1,1),"Helvetica-Bold"),
         ("LEFTPADDING",(0,0),(-1,-1),4), ("RIGHTPADDING",(0,0),(-1,-1),5),
     ]))
     story = [company_head, Spacer(1, 3), invoice_head, Spacer(1, 3)]
@@ -296,7 +297,7 @@ def generate_bill_pdf(out_path, firm, bill, builties):
         [para(str(address), normal), para("Description of Transport Service : LIGNITE", normal)],
         [para("GSTIN No. : " + str(gstin), normal), para("DO No. : " + str(do_text), normal)],
         [para("PAN No. : " + str(pan), normal), para("Material : " + str(material), normal)],
-        [para("Dear Sir,   Please find below freight details :-", normal), ""],
+        [para("Dear Sir, Please find below freight details.", bold), ""],
     ], colWidths=[94*mm, 88*mm])
     party_block.setStyle(TableStyle([
         ("VALIGN",(0,0),(-1,-1),"TOP"),("LEFTPADDING",(0,0),(-1,-1),2),
@@ -304,7 +305,6 @@ def generate_bill_pdf(out_path, firm, bill, builties):
         ("BOTTOMPADDING",(0,0),(-1,-1),1),
     ]))
     story.extend([party_block, Spacer(1, 3)])
-    story.append(para("Rate Rs. (rate entered on this Bill)", normal))
     heads = ["Sr.", "Date", "LR No.", "DO No.", "Truck No.", "Despatch\\nWt. (MT)", "Receipt\\nWt. (MT)", "Rate / TON", "Amount Rs."]
     header_style = ParagraphStyle("BillColumnHeaderBold", parent=center, fontName="Helvetica-Bold",
                                   fontSize=8.5, leading=10, textColor=colors.black, alignment=1, wordWrap="CJK")
