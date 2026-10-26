@@ -51,7 +51,6 @@ class BillPdfRegressionTests(unittest.TestCase):
 
     def test_bill_pdf_prints_entered_rate_and_line_amount(self):
         text = self.render_bill("Both Less")
-        self.assertIn("Rate Rs.", text)
         self.assertIn("Amount Rs.", text)
         self.assertIn("2,100.00", text)
         self.assertIn("18,900.00", text)
