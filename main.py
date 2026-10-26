@@ -9,6 +9,7 @@ Data is stored locally in radhe_radhe.db next to this script.
 """
 import os
 import csv
+import json
 from datetime import datetime
 import platform
 import subprocess
@@ -17,7 +18,7 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
-from db import db, init_db, lookup_rate, DB_PATH, list_companies, get_active_company, set_active_company, BASE
+from db import db, init_db, lookup_rate, DB_PATH, list_companies, get_active_company, set_active_company, BASE, display_company_name
 from pdf_parser import parse_pdf
 from pdf_render import generate_builty_pdf, generate_bill_pdf, generate_chit_pdf
 
@@ -92,6 +93,7 @@ class App(tk.Tk):
         self.company_combo.pack(side="left")
         self.company_combo.bind("<<ComboboxSelected>>", self.switch_company)
         ttk.Button(top, text="＋ Add Company", command=self.add_company).pack(side="left", padx=5)
+        ttk.Button(top, text="Company Master", command=self.company_master).pack(side="left", padx=5)
         ttk.Label(top, text=f"DB: {DB_PATH.name}",
                   font=("Segoe UI", 9), foreground="#666").pack(side="right")
 
@@ -1308,13 +1310,68 @@ class App(tk.Tk):
         con.close()
         self._print_builty_pdf(dict(row), dict(do_row))
 
+    def _company_master_path(self):
+        return BASE / "company_master.json"
+
+    def _read_company_master(self):
+        try:
+            data = json.loads(self._company_master_path().read_text(encoding="utf-8"))
+            return data if isinstance(data, dict) else {}
+        except (OSError, ValueError, TypeError):
+            return {}
+
     def _current_firm(self):
-        """Return stationery details using the currently selected company name."""
-        firm = dict(FIRM)
+        """Get stationery details for the selected company; names remain fixed."""
         selected = str(getattr(self, "company_var", tk.StringVar(value="")).get() or "").strip()
-        if selected:
-            firm["name"] = selected.upper()
+        details = self._read_company_master().get(selected, {})
+        firm = dict(FIRM)
+        firm.update(details if isinstance(details, dict) else {})
+        firm["name"] = selected.upper() if selected else FIRM["name"]
         return firm
+
+    def company_master(self):
+        selected = str(self.company_var.get() or "").strip()
+        if not selected:
+            messagebox.showwarning("Company Master", "Pehla company select karo.")
+            return
+        win = tk.Toplevel(self)
+        win.title("Company Master — " + selected)
+        win.transient(self)
+        win.grab_set()
+        win.resizable(False, False)
+        frame = ttk.Frame(win, padding=16)
+        frame.pack(fill="both", expand=True)
+        ttk.Label(frame, text="Company Name (fixed):", font=("Segoe UI", 9, "bold")).grid(row=0, column=0, sticky="w", pady=5)
+        ttk.Label(frame, text=selected, font=("Segoe UI", 10, "bold")).grid(row=0, column=1, sticky="w", pady=5)
+        fields = [
+            ("GSTIN", "gstin"), ("Address", "address"), ("Phone", "phone"),
+            ("Email", "email"), ("Bank Name", "bank_name"), ("Account Number", "account_no"),
+            ("IFSC", "ifsc_code"), ("Branch Name", "branch_name"),
+        ]
+        current = self._read_company_master().get(selected, {})
+        vars_ = {}
+        for row, (label, key) in enumerate(fields, start=1):
+            ttk.Label(frame, text=label + ":").grid(row=row, column=0, sticky="w", padx=(0,12), pady=4)
+            var = tk.StringVar(value=str(current.get(key, "")))
+            vars_[key] = var
+            ttk.Entry(frame, textvariable=var, width=42).grid(row=row, column=1, sticky="ew", pady=4)
+        def save():
+            data = self._read_company_master()
+            data[selected] = {key: var.get().strip() for key, var in vars_.items()}
+            path = self._company_master_path()
+            tmp = path.with_suffix(".json.tmp")
+            try:
+                tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+                tmp.replace(path)
+            except OSError as exc:
+                messagebox.showerror("Company Master", f"Save failed: {exc}", parent=win)
+                return
+            messagebox.showinfo("Company Master", "Company details saved. Bill PDF will use these details.", parent=win)
+            win.destroy()
+        buttons = ttk.Frame(frame)
+        buttons.grid(row=len(fields)+1, column=0, columnspan=2, sticky="e", pady=(12,0))
+        ttk.Button(buttons, text="Save", command=save).pack(side="left", padx=5)
+        ttk.Button(buttons, text="Cancel", command=win.destroy).pack(side="left", padx=5)
 
     def print_selected_chit(self):
         sel = self.bt.selection() if hasattr(self, "bt") else ()
