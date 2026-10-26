@@ -453,12 +453,12 @@ def generate_chit_pdf(out_path, firm, builty, do_row):
     doc = SimpleDocTemplate(str(out_path), pagesize=A4,
         leftMargin=13*mm, rightMargin=13*mm, topMargin=7*mm, bottomMargin=7*mm)
     normal = ParagraphStyle("ChitGujaratiNormal", parent=CELL, fontName=font_regular,
-                            fontSize=10, leading=15, wordWrap="CJK")
+                            fontSize=12, leading=17, wordWrap="CJK")
     bold = ParagraphStyle("ChitGujaratiBoldStyle", parent=normal, fontName=font_bold)
     title = ParagraphStyle("ChitGujaratiTitle", parent=normal, fontName=font_bold,
-                           fontSize=20, leading=24, alignment=1)
+                           fontSize=22, leading=27, alignment=1)
     subtitle = ParagraphStyle("ChitGujaratiSub", parent=normal, fontName=font_regular,
-                              fontSize=9, leading=12, alignment=1)
+                              fontSize=10.5, leading=14, alignment=1)
     center = ParagraphStyle("ChitGujaratiCenter", parent=normal, alignment=1)
     def para(v="", style=normal, limit=350):
         return Paragraph(_safe(v, limit), style)
@@ -527,7 +527,7 @@ def generate_chit_pdf(out_path, firm, builty, do_row):
         [para("ડી.ઓ. તા. :", bold), para(do_date)],
         [para("ટ્રક નંબર :", bold), para(truck_no)],
     ]
-    details = Table(details_data, colWidths=[52*mm, 133*mm], rowHeights=[11*mm]*6)
+    details = Table(details_data, colWidths=[52*mm, 133*mm], rowHeights=[12*mm]*6)
     details.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.9,colors.black),("INNERGRID",(0,0),(-1,-1),0.65,colors.black),
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
@@ -536,7 +536,7 @@ def generate_chit_pdf(out_path, firm, builty, do_row):
     instructions = Table([
         [para("ગાડી માલિક / ડ્રાઈવરો માટે સૂચના :", bold)],
         [para("માઇન્સ પરથી લિગ્નાઈટ જોઈ તપાસીને ભરવો, લિગ્નાઈટમાં સેલ, પથ્થર, માટી કે પાણી આવશે તો તેની જવાબદારી આપની રહેશે.", normal)],
-    ], colWidths=[185*mm], rowHeights=[9*mm, 16*mm])
+    ], colWidths=[185*mm], rowHeights=[10*mm, 18*mm])
     instructions.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.8,colors.black),("INNERGRID",(0,0),(-1,-1),0.5,colors.black),
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),("LEFTPADDING",(0,0),(-1,-1),5),
