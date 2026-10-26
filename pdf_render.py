@@ -343,15 +343,28 @@ def generate_bill_pdf(out_path, firm, bill, builties):
     total = num(bill.get("total")) or subtotal + cgst + sgst + igst + round_off
     terms = "Terms & Conditions :\nSubject to Bhuj Jurisdiction.\nGST - RCM not apply if otherwise agreed.\n* Paid By Receiver"
     bank = str(firm.get("bank_details") or "Bank Details :")
+    terms_box = Table([
+        [para("Terms & Conditions :", bold)],
+        [para("Subject to Bhuj Jurisdiction.", normal)],
+        [para("GST - RCM not apply if otherwise agreed.", normal)],
+        [para("* Paid By Receiver", normal)],
+    ], colWidths=[96*mm], rowHeights=[8*mm,7*mm,7*mm,7*mm])
+    terms_box.setStyle(TableStyle([
+        ("BOX",(0,0),(-1,-1),0.6,colors.black),
+        ("INNERGRID",(0,0),(-1,-1),0.3,colors.black),
+        ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
+        ("LEFTPADDING",(0,0),(-1,-1),4), ("RIGHTPADDING",(0,0),(-1,-1),4),
+        ("TOPPADDING",(0,0),(-1,-1),1), ("BOTTOMPADDING",(0,0),(-1,-1),1),
+    ]))
     totals = Table([
-        [para("Terms & Conditions :", bold), para("SUB TOTAL", bold), para(money(subtotal), bold)],
-        [para("Subject to Bhuj Jurisdiction.", normal), para("CGST", bold), para(money(cgst), bold)],
-        [para("GST - RCM not apply if otherwise agreed.", normal), para("SGST", bold), para(money(sgst), bold)],
-        [para("* Paid By Receiver", normal), para("IGST", bold), para(money(igst), bold)],
-        [para(bank, normal), para("Round Off", bold), para(money(round_off), bold)],
-        [para("", normal), para("NET AMOUNT", bold), para(money(total), bold)],
+        [terms_box, para("SUB TOTAL", bold), para(money(subtotal), bold)],
+        ["", para("CGST", bold), para(money(cgst), bold)],
+        ["", para("SGST", bold), para(money(sgst), bold)],
+        ["", para("IGST", bold), para(money(igst), bold)],
+        ["", para("Round Off", bold), para(money(round_off), bold)],
+        ["", para("NET AMOUNT", bold), para(money(total), bold)],
         [para("Rupees : " + str(bill.get("amount_in_words") or ""), normal), "", ""],
-    ], colWidths=[96*mm, 42*mm, 44*mm], rowHeights=[9*mm,7*mm,7*mm,7*mm,7*mm,8*mm,7*mm])
+    ], colWidths=[96*mm, 42*mm, 44*mm], rowHeights=[29*mm,7*mm,7*mm,7*mm,7*mm,8*mm,7*mm])
     totals.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.55,colors.black),("INNERGRID",(0,0),(-1,-1),0.3,colors.black),
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),("LEFTPADDING",(0,0),(-1,-1),3),
