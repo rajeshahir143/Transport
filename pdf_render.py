@@ -358,6 +358,7 @@ def generate_bill_pdf(out_path, firm, bill, builties):
     terms_box.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.7,colors.black),
         ("LINEBELOW",(0,0),(-1,0),0.5,colors.black),
+        ("FONTNAME",(0,3),(0,3),"Helvetica"),
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
         ("LEFTPADDING",(0,0),(-1,-1),5), ("RIGHTPADDING",(0,0),(-1,-1),4),
         ("TOPPADDING",(0,0),(-1,-1),1), ("BOTTOMPADDING",(0,0),(-1,-1),1),
