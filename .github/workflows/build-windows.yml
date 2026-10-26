@@ -30,9 +30,16 @@ jobs:
       - name: Test database backup and restore safely
         run: python -m unittest discover -s tests -p "test_*.py" -v
 
+      - name: Download Gujarati font
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path fonts | Out-Null
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/google/fonts/main/ofl/notosansgujaratiui/NotoSansGujaratiUI-Regular.ttf" -OutFile "fonts/NotoSansGujarati.ttf"
+          if ((Get-Item "fonts/NotoSansGujarati.ttf").Length -lt 50000) { throw "Gujarati font download failed or file is invalid." }
+
       - name: Build EXE
         run: |
-          pyinstaller --noconfirm --clean --onefile --windowed --name "RadheRadheDeveloper" main.py
+          pyinstaller --noconfirm --clean --onefile --windowed --add-data "fonts/NotoSansGujarati.ttf;fonts" --name "RadheRadheDeveloper" main.py
 
       - name: Upload EXE
         uses: actions/upload-artifact@v4
