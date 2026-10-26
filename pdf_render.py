@@ -409,20 +409,18 @@ class _ChitTruck(Flowable):
 
 
 def generate_chit_pdf(out_path, firm, builty, do_row):
-    """English mine-loading chit; use standard PDF fonts for consistent rendering."""
+    """English mine-loading chit for Mansi Coal Carriers."""
     font_regular = "Helvetica"
     font_bold = "Helvetica-Bold"
-
     doc = SimpleDocTemplate(str(out_path), pagesize=A4,
         leftMargin=13*mm, rightMargin=13*mm, topMargin=7*mm, bottomMargin=7*mm)
-    normal = ParagraphStyle("ChitGujaratiNormal", parent=CELL, fontName=font_regular,
-                            fontSize=10.5, leading=13, wordWrap="CJK")
-    bold = ParagraphStyle("ChitGujaratiBoldStyle", parent=normal, fontName=font_bold)
-    title = ParagraphStyle("ChitGujaratiTitle", parent=normal, fontName=font_bold,
-                           fontSize=18, leading=22, alignment=1)
-    subtitle = ParagraphStyle("ChitGujaratiSub", parent=normal, fontName=font_regular,
+    normal = ParagraphStyle("ChitEnglishNormal", parent=CELL, fontName=font_regular,
+                            fontSize=10, leading=12, wordWrap="CJK")
+    bold = ParagraphStyle("ChitEnglishBold", parent=normal, fontName=font_bold)
+    title = ParagraphStyle("ChitEnglishTitle", parent=normal, fontName=font_bold,
+                           fontSize=18, leading=21, alignment=1)
+    subtitle = ParagraphStyle("ChitEnglishSub", parent=normal, fontName=font_regular,
                               fontSize=9, leading=11, alignment=1)
-    center = ParagraphStyle("ChitGujaratiCenter", parent=normal, alignment=1)
     def para(v="", style=normal, limit=350):
         return Paragraph(_safe(v, limit), style)
     def first(*values):
@@ -430,23 +428,8 @@ def generate_chit_pdf(out_path, firm, builty, do_row):
             if value is not None and str(value).strip():
                 return str(value).strip()
         return ""
-    raw_name = str(firm.get("name") or "MANSI COAL CARRIER").strip()
-    firm_key = raw_name.upper()
-    gujarati_names = {
-        "MANSI COAL CARRIER": "માનસી કોલ કેરીયર્સ",
-        "MANSI COAL CAREER": "માનસી કોલ કેરીયર્સ",
-        "MANSI COAL CARRIER.": "માનસી કોલ કેરીયર્સ",
-        "MANSI COAL CAREER.": "માનસી કોલ કેરીયર્સ",
-        "PARTH ENTERPRISE": "પાર્થ એન્ટરપ્રાઇઝ",
-        "SHIVAY LOGISTICS": "શિવાય લોજિસ્ટિક્સ",
-        "SHREE RAMDEV ENTERPRISE.": "શ્રી રામદેવ એન્ટરપ્રાઇઝ",
-        "K. D. ENTERPRISE": "કે. ડી. એન્ટરપ્રાઇઝ",
-        "NILKANTH LOGISTICS": "નીલકંઠ લોજિસ્ટિક્સ",
-        "M R ENTERPRISE": "એમ આર એન્ટરપ્રાઇઝ",
-    }
-    firm_name = gujarati_names.get(firm_key, raw_name)
-    office = first(firm.get("address"),
-        "ઓફિસ નંબર ૧, સદગુરૂ કોમ્પ્લેક્ષની પાછળ, ભુજ માધાપર હાઈવે, ભુજ-કચ્છ.")
+    firm_name = "MANSI COAL CARRIERS"
+    office = "Office No. 1, Behind Sadguru Complex, Bhuj Madhapar Highway, Bhuj-Kutch."
     party = first(do_row.get("customer_name"), builty.get("consignee"))
     village = first(do_row.get("to_place"), builty.get("to_place"), builty.get("center_name"))
     do_number = first(do_row.get("do_no"), do_row.get("gmdc_do_no"))
@@ -456,9 +439,10 @@ def generate_chit_pdf(out_path, firm, builty, do_row):
     chit_no = first(builty.get("builty_no"), builty.get("lr_no"), builty.get("id"))
 
     header = Table([
-        [_ChitTruck(), [para(firm_name, title), para("ટ્રાન્સપોર્ટ કોન્ટ્રાકટર એન્ડ લીગ્નાઇટ કલીયરીંગ એજન્ટ", subtitle)]],
+        [_ChitTruck(), [para(firm_name, title),
+          para("Transport Contractor & Lignite Clearing Agent", subtitle)]],
         ["", para(office, subtitle)],
-        ["", para("મો. ૯૮૭૯૫ ૦૯૨૨૬ ૮૦૧૬૦ ૧૧૦૮૨", bold)],
+        ["", para("Md. 98795 09226 / 90160 11092", bold)],
     ], colWidths=[35*mm, 150*mm], rowHeights=[20*mm, 8*mm, 7*mm])
     header.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.9,colors.black),
@@ -469,26 +453,29 @@ def generate_chit_pdf(out_path, firm, builty, do_row):
         ("TOPPADDING",(0,0),(-1,-1),2),("BOTTOMPADDING",(0,0),(-1,-1),2),
     ]))
     top = Table([
-        [para("નં. " + chit_no, bold), para("તા. ................................", bold), para("૨૪ ટન", bold)],
-        [para("પ્રતિ,", bold), para("શ્રી માઈન્સ મેનેજર સાહેબ,", bold), para("ગ્રેડ 'A'\\nકોડ નં.: M595", bold)],
-        [para("જી.એમ.ડી.સી.લી.", bold), para("લિગ્નાઈટ પ્રોજેકટ માતાનામઢ", bold), para("", normal)],
+        [para("No. " + (chit_no or "........................"), bold),
+         para("Date: ................................", bold), para("24 Tons", bold)],
+        [para("To,", bold), para("Shri Mines Manager Sir,", bold),
+         para("Grade 'A'\\nCODE NO: M595", bold)],
+        [para("G.M.D.C.L.", bold), para("Lignite Project Matanamadh", bold), para("", normal)],
     ], colWidths=[55*mm, 75*mm, 55*mm], rowHeights=[10*mm, 9*mm, 9*mm])
     top.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.8,colors.black),("INNERGRID",(0,0),(-1,-1),0.55,colors.black),
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),("ALIGN",(2,0),(2,-1),"CENTER"),
         ("LEFTPADDING",(0,0),(-1,-1),5),("RIGHTPADDING",(0,0),(-1,-1),5),
     ]))
-    intro = para("સાહેબ શ્રી, જય ભારત સાથે જણાવવાનું કે નીચેની વિગતે અમારી પાર્ટીના ડી.ઓ. મુજબનો સારો ભુક્કા વગરનો લિગ્નાઈટ આવેલ ટ્રકમાં ભરી આપવા વિનંતી છે.", normal)
-    grade = Table([[para("'A' લુઝ લિગ્નાઈટ", bold, 120)]], colWidths=[185*mm], rowHeights=[9*mm])
-    grade.setStyle(TableStyle([("BOX",(0,0),(-1,-1),0.8,colors.black),
+    intro = para("Sir, Jai Bharat. We request you to load the truck with good-quality lignite, without powder, as per the details of our party's D.O. given below.", normal)
+    grade = Table([[para("'A' Loose Lignite", bold)]], colWidths=[185*mm], rowHeights=[9*mm])
+    grade.setStyle(TableStyle([
+        ("BOX",(0,0),(-1,-1),0.8,colors.black),
         ("ALIGN",(0,0),(-1,-1),"CENTER"),("VALIGN",(0,0),(-1,-1),"MIDDLE")]))
     details_data = [
-        [para("પાર્ટીનું નામ :", bold), para(party)],
-        [para("ગામનું નામ :", bold), para(village)],
-        [para("ડી.ઓ. નં. :", bold), para(do_number)],
-        [para("રજી. નં. :", bold), para(reg_no)],
-        [para("ડી.ઓ. તા. :", bold), para(do_date)],
-        [para("ટ્રક નંબર :", bold), para(truck_no)],
+        [para("Party Name:", bold), para(party)],
+        [para("Village Name:", bold), para(village)],
+        [para("D.O. No.:", bold), para(do_number)],
+        [para("Reg. No.:", bold), para(reg_no)],
+        [para("D.O. Date:", bold), para(do_date)],
+        [para("Truck No.:", bold), para(truck_no)],
     ]
     details = Table(details_data, colWidths=[52*mm, 133*mm], rowHeights=[12*mm]*6)
     details.setStyle(TableStyle([
@@ -497,18 +484,19 @@ def generate_chit_pdf(out_path, firm, builty, do_row):
         ("LEFTPADDING",(0,0),(-1,-1),6),("RIGHTPADDING",(0,0),(-1,-1),6),
     ]))
     instructions = Table([
-        [para("ગાડી માલિક / ડ્રાઈવરો માટે સૂચના :", bold)],
-        [para("માઇન્સ પરથી લિગ્નાઈટ જોઈ તપાસીને ભરવો, લિગ્નાઈટમાં સેલ, પથ્થર, માટી કે પાણી આવશે તો તેની જવાબદારી આપની રહેશે.", normal)],
+        [para("Instructions for Vehicle Owners / Drivers:", bold)],
+        [para("Check the lignite at the mine before loading. If the lignite contains salt, stones, soil, or water, the responsibility will be yours.", normal)],
     ], colWidths=[185*mm], rowHeights=[10*mm, 18*mm])
     instructions.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.8,colors.black),("INNERGRID",(0,0),(-1,-1),0.5,colors.black),
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),("LEFTPADDING",(0,0),(-1,-1),5),
         ("RIGHTPADDING",(0,0),(-1,-1),5),
     ]))
-    footer = Table([[para("માનસી કોલ કેરીયર્સ વતી,", bold)]], colWidths=[185*mm], rowHeights=[16*mm])
+    footer = Table([[para("For Mansi Coal Carriers", bold)]], colWidths=[185*mm], rowHeights=[16*mm])
     footer.setStyle(TableStyle([("ALIGN",(0,0),(-1,-1),"RIGHT"),("VALIGN",(0,0),(-1,-1),"BOTTOM"),
         ("LEFTPADDING",(0,0),(-1,-1),5),("RIGHTPADDING",(0,0),(-1,-1),8)]))
     story = [header, Spacer(1, 3*mm), top, Spacer(1, 2*mm), intro, Spacer(1, 2*mm),
              grade, Spacer(1, 2*mm), details, Spacer(1, 2*mm), instructions, footer]
     doc.build(story)
     return str(out_path)
+
