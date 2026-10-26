@@ -281,16 +281,13 @@ def generate_bill_pdf(out_path, firm, bill, builties):
         ("LEFTPADDING",(0,0),(-1,-1),4), ("RIGHTPADDING",(0,0),(-1,-1),4),
     ]))
     company_head = Table([
-        [para(firm_name, title), "", ""],
-        [para("Bhavnagar, Gujarat", center), "", ""],
-        [para("GSTIN : " + str(firm.get("gstin") or ""), bold),
-         para("Phone : " + str(firm.get("phone") or ""), normal),
-         para("Email : " + str(firm.get("email") or ""), normal)],
-        [para("No. : " + str(bill_no), bold), para("Date : " + str(bill_date), bold), ""],
-    ], colWidths=[70*mm, 56*mm, 56*mm], rowHeights=[10*mm, 6*mm, 7*mm, 6*mm])
+        [para(firm_name, title), ""],
+        [para("GSTIN : " + str(firm.get("gstin") or ""), bold), ""],
+        [para("No. : " + str(bill_no), bold), para("Date : " + str(bill_date), bold)],
+    ], colWidths=[91*mm, 91*mm], rowHeights=[10*mm, 7*mm, 7*mm])
     company_head.setStyle(TableStyle([
-        ("SPAN",(0,0),(-1,0)), ("SPAN",(0,1),(-1,1)),
-        ("SPAN",(1,3),(-1,3)),
+        ("SPAN",(0,0),(-1,0)),
+        ("SPAN",(0,1),(-1,1)),
     ]))
     company_head.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.8,colors.black), ("LINEBELOW",(0,0),(-1,0),0.45,colors.black),
