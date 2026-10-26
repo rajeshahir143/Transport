@@ -282,7 +282,7 @@ def generate_bill_pdf(out_path, firm, bill, builties):
     ]))
     company_head = Table([
         [para(firm_name, title), ""],
-        [para("Bill No. : " + str(bill_no), bold), para("GSTIN : " + str(firm.get("gstin") or ""), bold)],
+        [para("GSTIN : " + str(firm.get("gstin") or ""), bold), para("Bill No. : " + str(bill_no), bold)],
     ], colWidths=[122*mm, 60*mm], rowHeights=[10*mm, 7*mm])
     company_head.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.8,colors.black), ("LINEBELOW",(0,0),(-1,0),0.45,colors.black),
