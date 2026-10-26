@@ -370,81 +370,141 @@ class _ChitTruck:
 
 
 def generate_chit_pdf(out_path, firm, builty, do_row):
-    """Generate a loading chit styled after the user's photographed stationery."""
+    """Gujarati mine-loading chit; use a Gujarati-capable, HarfBuzz-shaped font."""
+    import os
+    from pathlib import Path
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+
+    font_regular = "Helvetica"
+    font_bold = "Helvetica-Bold"
+    # Windows Nirmala UI contains Gujarati glyphs; use HarfBuzz shaping for conjuncts.
+    font_candidates = [
+        Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts" / "Nirmala.ttf",
+        Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts" / "NirmalaS.ttf",
+        Path(__file__).resolve().parent / "fonts" / "NotoSansGujarati-Regular.ttf",
+    ]
+    bold_candidates = [
+        Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts" / "NirmalaB.ttf",
+        Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts" / "NirmalaS-Bold.ttf",
+    ]
+    font_path = next((p for p in font_candidates if p.is_file()), None)
+    if font_path:
+        try:
+            if "ChitGujarati" not in pdfmetrics.getRegisteredFontNames():
+                pdfmetrics.registerFont(TTFont("ChitGujarati", str(font_path), shapable=True))
+            font_regular = "ChitGujarati"
+            bold_path = next((p for p in bold_candidates if p.is_file()), None)
+            if bold_path:
+                if "ChitGujaratiBold" not in pdfmetrics.getRegisteredFontNames():
+                    pdfmetrics.registerFont(TTFont("ChitGujaratiBold", str(bold_path), shapable=True))
+                font_bold = "ChitGujaratiBold"
+            else:
+                font_bold = font_regular
+            pdfmetrics.registerFontFamily("ChitGujarati", normal=font_regular,
+                                          bold=font_bold, italic=font_regular, boldItalic=font_bold)
+        except Exception:
+            # Do not silently produce boxes for Gujarati; fail with a clear installation message.
+            raise RuntimeError(
+                "Gujarati font shaping is unavailable. Install Nirmala UI and uharfbuzz, then retry Chit Print."
+            )
+
     doc = SimpleDocTemplate(str(out_path), pagesize=A4,
-        leftMargin=13*mm, rightMargin=13*mm, topMargin=10*mm, bottomMargin=10*mm)
-    normal = ParagraphStyle("ChitNormal2", parent=CELL, fontSize=10, leading=13)
-    bold = ParagraphStyle("ChitBold2", parent=normal, fontName="Helvetica-Bold")
-    title = ParagraphStyle("ChitTitle2", parent=normal, fontName="Helvetica-Bold",
-                           fontSize=21, leading=24, alignment=1)
-    subtitle = ParagraphStyle("ChitSub2", parent=normal, fontSize=9, leading=11, alignment=1)
-    def para(v, style=normal):
-        return Paragraph(_safe(v, 250), style)
+        leftMargin=13*mm, rightMargin=13*mm, topMargin=7*mm, bottomMargin=7*mm)
+    normal = ParagraphStyle("ChitGujaratiNormal", parent=CELL, fontName=font_regular,
+                            fontSize=10, leading=15, wordWrap="CJK")
+    bold = ParagraphStyle("ChitGujaratiBoldStyle", parent=normal, fontName=font_bold)
+    title = ParagraphStyle("ChitGujaratiTitle", parent=normal, fontName=font_bold,
+                           fontSize=20, leading=24, alignment=1)
+    subtitle = ParagraphStyle("ChitGujaratiSub", parent=normal, fontName=font_regular,
+                              fontSize=9, leading=12, alignment=1)
+    center = ParagraphStyle("ChitGujaratiCenter", parent=normal, alignment=1)
+    def para(v="", style=normal, limit=350):
+        return Paragraph(_safe(v, limit), style)
     def first(*values):
         for value in values:
             if value is not None and str(value).strip():
                 return str(value).strip()
         return ""
-    firm_name = str(firm.get("name") or "MANSI COAL CARRIER").strip().upper()
-    office = str(firm.get("address") or "Office No. 1, Sadhguru Complex, Bhuj, Kutch")
-    # Use the DO-linked values first; blank values remain blank rather than guessed.
+    raw_name = str(firm.get("name") or "MANSI COAL CARRIER").strip()
+    firm_key = raw_name.upper()
+    gujarati_names = {
+        "MANSI COAL CARRIER": "માનસી કોલ કેરીયર્સ",
+        "MANSI COAL CAREER": "માનસી કોલ કેરીયર્સ",
+        "MANSI COAL CARRIER.": "માનસી કોલ કેરીયર્સ",
+        "MANSI COAL CAREER.": "માનસી કોલ કેરીયર્સ",
+        "PARTH ENTERPRISE": "પાર્થ એન્ટરપ્રાઇઝ",
+        "SHIVAY LOGISTICS": "શિવાય લોજિસ્ટિક્સ",
+        "SHREE RAMDEV ENTERPRISE.": "શ્રી રામદેવ એન્ટરપ્રાઇઝ",
+        "K. D. ENTERPRISE": "કે. ડી. એન્ટરપ્રાઇઝ",
+        "NILKANTH LOGISTICS": "નીલકંઠ લોજિસ્ટિક્સ",
+        "M R ENTERPRISE": "એમ આર એન્ટરપ્રાઇઝ",
+    }
+    firm_name = gujarati_names.get(firm_key, raw_name)
+    office = first(firm.get("address"),
+        "ઓફિસ નંબર ૧, સદગુરૂ કોમ્પ્લેક્ષની પાછળ, ભુજ માધાપર હાઈવે, ભુજ-કચ્છ.")
     party = first(do_row.get("customer_name"), builty.get("consignee"))
     village = first(do_row.get("to_place"), builty.get("to_place"), builty.get("center_name"))
     do_number = first(do_row.get("do_no"), do_row.get("gmdc_do_no"))
     reg_no = first(do_row.get("registration_no"), do_row.get("regi_no"), do_row.get("reg_no"))
     do_date = first(do_row.get("date"), do_row.get("do_date"))
     truck_no = first(builty.get("truck_no"), builty.get("vehicle_no"))
+    chit_no = first(builty.get("builty_no"), builty.get("lr_no"), builty.get("id"))
+
     header = Table([
-        [_ChitTruck(), [para(firm_name, title), para("TRANSPORT CONTRACTOR AND LIGNITE CARRIER AGENT", subtitle)]],
+        [_ChitTruck(), [para(firm_name, title), para("ટ્રાન્સપોર્ટ કોન્ટ્રાકટર એન્ડ લીગ્નાઇટ કલીયરીંગ એજન્ટ", subtitle)]],
         ["", para(office, subtitle)],
-    ], colWidths=[35*mm, 150*mm], rowHeights=[22*mm, 8*mm])
+        ["", para("મો. ૯૮૭૯૫ ૦૯૨૨૬ ૮૦૧૬૦ ૧૧૦૮૨", bold)],
+    ], colWidths=[35*mm, 150*mm], rowHeights=[20*mm, 8*mm, 7*mm])
     header.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.9,colors.black),
-        ("LINEBELOW",(0,0),(-1,0),0.7,colors.black),
+        ("LINEBELOW",(0,1),(-1,1),0.6,colors.black),
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
         ("ALIGN",(1,0),(1,-1),"CENTER"),
         ("LEFTPADDING",(0,0),(-1,-1),4),("RIGHTPADDING",(0,0),(-1,-1),4),
-        ("TOPPADDING",(0,0),(-1,-1),3),("BOTTOMPADDING",(0,0),(-1,-1),3),
+        ("TOPPADDING",(0,0),(-1,-1),2),("BOTTOMPADDING",(0,0),(-1,-1),2),
     ]))
     top = Table([
-        [para("No. " + first(builty.get("builty_no")), bold),
-         para("Date: ................................", bold),
-         para("24 TON", bold)],
-        [para("To: Mines Manager / GMDC", normal),
-         para("GRADE 'A'", bold),
-         para("CODE NO: M595", bold)],
-    ], colWidths=[65*mm, 62*mm, 58*mm], rowHeights=[12*mm, 12*mm])
+        [para("નં. " + chit_no, bold), para("તા. ................................", bold), para("૨૪ ટન", bold)],
+        [para("પ્રતિ,", bold), para("શ્રી માઈન્સ મેનેજર સાહેબ,", bold), para("ગ્રેડ 'A'\\nકોડ નં.: M595", bold)],
+        [para("જી.એમ.ડી.સી.લી.", bold), para("લિગ્નાઈટ પ્રોજેકટ માતાનામઢ", bold), para("", normal)],
+    ], colWidths=[55*mm, 75*mm, 55*mm], rowHeights=[10*mm, 9*mm, 9*mm])
     top.setStyle(TableStyle([
-        ("BOX",(0,0),(-1,-1),0.8,colors.black),("INNERGRID",(0,0),(-1,-1),0.6,colors.black),
-        ("VALIGN",(0,0),(-1,-1),"MIDDLE"),("ALIGN",(1,0),(-1,-1),"CENTER"),
+        ("BOX",(0,0),(-1,-1),0.8,colors.black),("INNERGRID",(0,0),(-1,-1),0.55,colors.black),
+        ("VALIGN",(0,0),(-1,-1),"MIDDLE"),("ALIGN",(2,0),(2,-1),"CENTER"),
         ("LEFTPADDING",(0,0),(-1,-1),5),("RIGHTPADDING",(0,0),(-1,-1),5),
     ]))
+    intro = para("સાહેબ શ્રી, જય ભારત સાથે જણાવવાનું કે નીચેની વિગતે અમારી પાર્ટીના ડી.ઓ. મુજબનો સારો ભુક્કા વગરનો લિગ્નાઈટ આવેલ ટ્રકમાં ભરી આપવા વિનંતી છે.", normal)
+    grade = Table([[para("'A' લુઝ લિગ્નાઈટ", bold, 120)]], colWidths=[185*mm], rowHeights=[9*mm])
+    grade.setStyle(TableStyle([("BOX",(0,0),(-1,-1),0.8,colors.black),
+        ("ALIGN",(0,0),(-1,-1),"CENTER"),("VALIGN",(0,0),(-1,-1),"MIDDLE")]))
     details_data = [
-        [para("PARTY NAME :", bold), para(party)],
-        [para("VILLAGE NAME :", bold), para(village)],
-        [para("D.O. NO. :", bold), para(do_number)],
-        [para("REGISTRATION NO. :", bold), para(reg_no)],
-        [para("D.O. DATE :", bold), para(do_date)],
-        [para("TRUCK NUMBER :", bold), para(truck_no)],
+        [para("પાર્ટીનું નામ :", bold), para(party)],
+        [para("ગામનું નામ :", bold), para(village)],
+        [para("ડી.ઓ. નં. :", bold), para(do_number)],
+        [para("રજી. નં. :", bold), para(reg_no)],
+        [para("ડી.ઓ. તા. :", bold), para(do_date)],
+        [para("ટ્રક નંબર :", bold), para(truck_no)],
     ]
-    details = Table(details_data, colWidths=[52*mm, 133*mm], rowHeights=[15*mm]*6)
+    details = Table(details_data, colWidths=[52*mm, 133*mm], rowHeights=[11*mm]*6)
     details.setStyle(TableStyle([
-        ("BOX",(0,0),(-1,-1),0.9,colors.black),("INNERGRID",(0,0),(-1,-1),0.7,colors.black),
+        ("BOX",(0,0),(-1,-1),0.9,colors.black),("INNERGRID",(0,0),(-1,-1),0.65,colors.black),
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
         ("LEFTPADDING",(0,0),(-1,-1),6),("RIGHTPADDING",(0,0),(-1,-1),6),
     ]))
-    instructions = Table([[para("VEHICLE OWNER / DRIVER INSTRUCTIONS :", bold)],
-        [para("Take care while transporting from mine to destination. Responsibility for material and road conditions remains with the driver as instructed by the company.")]],
-        colWidths=[185*mm], rowHeights=[10*mm, 20*mm])
+    instructions = Table([
+        [para("ગાડી માલિક / ડ્રાઈવરો માટે સૂચના :", bold)],
+        [para("માઇન્સ પરથી લિગ્નાઈટ જોઈ તપાસીને ભરવો, લિગ્નાઈટમાં સેલ, પથ્થર, માટી કે પાણી આવશે તો તેની જવાબદારી આપની રહેશે.", normal)],
+    ], colWidths=[185*mm], rowHeights=[9*mm, 16*mm])
     instructions.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.8,colors.black),("INNERGRID",(0,0),(-1,-1),0.5,colors.black),
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),("LEFTPADDING",(0,0),(-1,-1),5),
         ("RIGHTPADDING",(0,0),(-1,-1),5),
     ]))
-    footer = Table([[para("For " + firm_name, bold)]], colWidths=[185*mm], rowHeights=[22*mm])
+    footer = Table([[para("માનસી કોલ કેરીયર્સ વતી,", bold)]], colWidths=[185*mm], rowHeights=[16*mm])
     footer.setStyle(TableStyle([("ALIGN",(0,0),(-1,-1),"RIGHT"),("VALIGN",(0,0),(-1,-1),"BOTTOM"),
         ("LEFTPADDING",(0,0),(-1,-1),5),("RIGHTPADDING",(0,0),(-1,-1),8)]))
-    story = [header, Spacer(1, 5*mm), top, Spacer(1, 4*mm), details,
-             Spacer(1, 3*mm), instructions, Spacer(1, 20*mm), footer]
+    story = [header, Spacer(1, 3*mm), top, Spacer(1, 2*mm), intro, Spacer(1, 2*mm),
+             grade, Spacer(1, 2*mm), details, Spacer(1, 2*mm), instructions, footer]
     doc.build(story)
     return str(out_path)
