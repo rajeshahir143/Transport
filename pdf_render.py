@@ -509,18 +509,26 @@ def generate_chit_pdf(out_path, firm, builty, do_row):
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),("ALIGN",(0,0),(-1,-1),"CENTER"),
         ("LEFTPADDING",(0,0),(-1,-1),2),("RIGHTPADDING",(0,0),(-1,-1),2),
     ]))
-    recipient_block = Table([[addressee, right_info]], colWidths=[110*mm, 75*mm], rowHeights=[47*mm])
-    recipient_block.setStyle(TableStyle([
-        ("BOX",(0,0),(-1,-1),0.8,colors.black),("INNERGRID",(0,0),(-1,-1),0.5,colors.black),
-        ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
-        ("LEFTPADDING",(0,0),(-1,-1),2),("RIGHTPADDING",(0,0),(-1,-1),2),
-        ("TOPPADDING",(0,0),(-1,-1),2),("BOTTOMPADDING",(0,0),(-1,-1),2),
-    ]))
+    # One outer box contains the complete address/instruction block.
+    # Quantity stays circled; Grade and Code each have their own stacked box.
     intro = para("Sir, Jai Bharat. We request you to load the truck with good-quality lignite, without powder, as per the details of our party's D.O. given below.", normal)
     grade = Table([[para("'A' Loose Lignite", bold)]], colWidths=[185*mm], rowHeights=[9*mm])
     grade.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.8,colors.black),
         ("ALIGN",(0,0),(-1,-1),"CENTER"),("VALIGN",(0,0),(-1,-1),"MIDDLE")]))
+    recipient_block = Table([
+        [addressee, right_info],
+        [intro, ""],
+        [grade, ""],
+    ], colWidths=[110*mm, 75*mm], rowHeights=[47*mm, 17*mm, 11*mm])
+    recipient_block.setStyle(TableStyle([
+        ("BOX",(0,0),(-1,-1),0.9,colors.black),
+        ("INNERGRID",(0,0),(-1,-1),0.5,colors.black),
+        ("SPAN",(0,1),(-1,1)),("SPAN",(0,2),(-1,2)),
+        ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
+        ("LEFTPADDING",(0,0),(-1,-1),4),("RIGHTPADDING",(0,0),(-1,-1),4),
+        ("TOPPADDING",(0,0),(-1,-1),2),("BOTTOMPADDING",(0,0),(-1,-1),2),
+    ]))
     details_data = [
         [para("Party Name:", bold), para(party)],
         [para("Village Name:", bold), para(village)],
@@ -547,8 +555,8 @@ def generate_chit_pdf(out_path, firm, builty, do_row):
     footer = Table([[para("For Mansi Coal Carriers", bold)]], colWidths=[185*mm], rowHeights=[16*mm])
     footer.setStyle(TableStyle([("ALIGN",(0,0),(-1,-1),"RIGHT"),("VALIGN",(0,0),(-1,-1),"BOTTOM"),
         ("LEFTPADDING",(0,0),(-1,-1),5),("RIGHTPADDING",(0,0),(-1,-1),8)]))
-    story = [header, Spacer(1, 3*mm), number_date, Spacer(1, 1*mm), recipient_block, Spacer(1, 2*mm), intro, Spacer(1, 2*mm),
-             grade, Spacer(1, 2*mm), details, Spacer(1, 2*mm), instructions, footer]
+    story = [header, Spacer(1, 3*mm), number_date, Spacer(1, 1*mm), recipient_block, Spacer(1, 2*mm),
+             details, Spacer(1, 2*mm), instructions, footer]
     doc.build(story)
     return str(out_path)
 
