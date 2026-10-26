@@ -438,7 +438,7 @@ def generate_chit_pdf(out_path, firm, builty, do_row):
                 return str(value).strip()
         return ""
     firm_name = "MANSI COAL CARRIERS"
-    office = "Office No. 1, Behind Sadguru\\nComplex, Bhuj Madhapar Highway,\\nBhuj-Kutch."
+    office = "Office No. 1, Behind Sadguru Complex, Bhuj Madhapar Highway, Bhuj-Kutch."
     party = first(do_row.get("customer_name"), builty.get("consignee"))
     village = first(do_row.get("to_place"), builty.get("to_place"), builty.get("center_name"))
     do_number = first(do_row.get("do_no"), do_row.get("gmdc_do_no"))
