@@ -36,6 +36,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path fonts | Out-Null
           Invoke-WebRequest -Uri "https://raw.githubusercontent.com/google/fonts/main/ofl/notosansgujarati/NotoSansGujarati%5Bwdth%2Cwght%5D.ttf" -OutFile "fonts/NotoSansGujarati.ttf"
           if ((Get-Item "fonts/NotoSansGujarati.ttf").Length -lt 50000) { throw "Gujarati font download failed or file is invalid." }
+          python -m pip install fonttools
           python -c "from fontTools.ttLib import TTFont; f=TTFont('fonts/NotoSansGujarati.ttf'); print('Gujarati font tables:', sorted(f.keys())); assert 'cmap' in f and 'glyf' in f"
 
       - name: Build EXE
