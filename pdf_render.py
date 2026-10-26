@@ -352,9 +352,7 @@ def generate_bill_pdf(out_path, firm, bill, builties):
         [para("1. Subject to Bhuj Jurisdiction.", normal)],
         [para("2. GST - RCM not apply if otherwise agreed.", normal)],
         [para("3. Paid By Receiver", normal)],
-        [para("BANK DETAILS", bold)],
-        [para(bank if bank else "Bank Details :", normal)],
-    ], colWidths=[96*mm], rowHeights=[6*mm,6*mm,6*mm,6*mm,7*mm,10*mm])
+    ], colWidths=[96*mm], rowHeights=[6*mm,6*mm,6*mm,6*mm])
     terms_box.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.7,colors.black),
         ("LINEBELOW",(0,0),(-1,0),0.5,colors.black),
@@ -363,17 +361,20 @@ def generate_bill_pdf(out_path, firm, bill, builties):
         ("LEFTPADDING",(0,0),(-1,-1),5), ("RIGHTPADDING",(0,0),(-1,-1),4),
         ("TOPPADDING",(0,0),(-1,-1),1), ("BOTTOMPADDING",(0,0),(-1,-1),1),
     ]))
+    bank_text = para("<b>BANK DETAILS</b><br/>" + (bank if bank else "Bank Details :"), normal)
     totals = Table([
         [terms_box, para("SUB TOTAL", bold), para(money(subtotal), bold)],
         ["", para("CGST", bold), para(money(cgst), bold)],
         ["", para("SGST", bold), para(money(sgst), bold)],
+        ["", bank_text, ""],
         ["", para("IGST", bold), para(money(igst), bold)],
         ["", para("Round Off", bold), para(money(round_off), bold)],
         ["", para("NET AMOUNT", bold), para(money(total), bold)],
         [para("Rupees : " + str(bill.get("amount_in_words") or ""), normal), "", ""],
-    ], colWidths=[96*mm, 42*mm, 44*mm], rowHeights=[41*mm,7*mm,7*mm,7*mm,7*mm,8*mm,7*mm])
+    ], colWidths=[96*mm, 42*mm, 44*mm], rowHeights=[24*mm,7*mm,7*mm,10*mm,7*mm,7*mm,8*mm,7*mm])
     totals.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.55,colors.black),("INNERGRID",(0,0),(-1,-1),0.3,colors.black),
+        ("SPAN",(1,3),(2,3)),
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),("LEFTPADDING",(0,0),(-1,-1),3),
         ("RIGHTPADDING",(0,0),(-1,-1),3),("TOPPADDING",(0,0),(-1,-1),1),
         ("BOTTOMPADDING",(0,0),(-1,-1),1),
