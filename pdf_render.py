@@ -273,12 +273,20 @@ def generate_bill_pdf(out_path, firm, bill, builties):
     do_text = ", ".join(do_numbers)
     bill_no = bill.get("bill_no") or ""
     bill_date = bill.get("bill_date") or ""
-    story = [para(firm_name, title), Spacer(1, 8),
-             para(str(firm.get("gstin") or ""), normal),
-             Table([[para("No. : " + str(bill_no), bold), para(invoice_label, title),
-                     para("Date : " + str(bill_date), bold)]],
-                   colWidths=[55*mm, 75*mm, 52*mm]),
-             Spacer(1, 3)]
+    invoice_head = Table([[para("No. : " + str(bill_no), bold), para(invoice_label, title),
+        para("Date : " + str(bill_date), bold)]], colWidths=[55*mm, 75*mm, 52*mm], rowHeights=[14*mm])
+    invoice_head.setStyle(TableStyle([
+        ("BOX",(0,0),(-1,-1),1.2,colors.black), ("INNERGRID",(0,0),(-1,-1),0.8,colors.black),
+        ("VALIGN",(0,0),(-1,-1),"MIDDLE"), ("ALIGN",(0,0),(-1,-1),"CENTER"),
+        ("LEFTPADDING",(0,0),(-1,-1),4), ("RIGHTPADDING",(0,0),(-1,-1),4),
+    ]))
+    company_head = Table([[para(firm_name, title)], [para("GSTIN : " + str(firm.get("gstin") or ""), bold)]],
+        colWidths=[182*mm], rowHeights=[10*mm, 7*mm])
+    company_head.setStyle(TableStyle([
+        ("BOX",(0,0),(-1,-1),0.8,colors.black), ("LINEBELOW",(0,0),(-1,0),0.45,colors.black),
+        ("ALIGN",(0,0),(-1,-1),"CENTER"), ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
+    ]))
+    story = [company_head, Spacer(1, 3), invoice_head, Spacer(1, 3)]
     party_block = Table([
         [para("M/s. " + str(party), bold), para("Mines : " + str(mines), bold)],
         [para(str(address), normal), para("Description of Transport Service : LIGNITE", normal)],
@@ -332,14 +340,14 @@ def generate_bill_pdf(out_path, firm, bill, builties):
     terms = "Terms & Conditions :\nSubject to Bhuj Jurisdiction.\nGST - RCM not apply if otherwise agreed.\n* Paid By Receiver"
     bank = str(firm.get("bank_details") or "Bank Details :")
     totals = Table([
-        [para(terms, normal), para("TOTAL", bold), para(money(subtotal), bold)],
-        [para(bank, normal), para("CGST 9.00%", normal), para(money(cgst), right)],
-        ["", para("SGST 9.00%", normal), para(money(sgst), right)],
-        ["", para("IGST", normal), para(money(igst), right)],
-        ["", para("Round Off", normal), para(money(round_off), right)],
-        ["", para("Net Amount", bold), para(money(total), bold)],
+        [para("Terms & Conditions :", bold), para("SUB TOTAL", bold), para(money(subtotal), bold)],
+        [para("Subject to Bhuj Jurisdiction.", normal), para("CGST", bold), para(money(cgst), bold)],
+        [para("GST - RCM not apply if otherwise agreed.", normal), para("SGST", bold), para(money(sgst), bold)],
+        [para("* Paid By Receiver", normal), para("IGST", bold), para(money(igst), bold)],
+        [para(bank, normal), para("Round Off", bold), para(money(round_off), bold)],
+        [para("", normal), para("NET AMOUNT", bold), para(money(total), bold)],
         [para("Rupees : " + str(bill.get("amount_in_words") or ""), normal), "", ""],
-    ], colWidths=[96*mm, 42*mm, 44*mm], rowHeights=[13*mm,7*mm,7*mm,7*mm,7*mm,8*mm,7*mm])
+    ], colWidths=[96*mm, 42*mm, 44*mm], rowHeights=[9*mm,7*mm,7*mm,7*mm,7*mm,8*mm,7*mm])
     totals.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.55,colors.black),("INNERGRID",(0,0),(-1,-1),0.3,colors.black),
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),("LEFTPADDING",(0,0),(-1,-1),3),
