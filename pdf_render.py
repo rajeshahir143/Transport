@@ -447,16 +447,24 @@ def generate_chit_pdf(out_path, firm, builty, do_row):
     truck_no = first(builty.get("truck_no"), builty.get("vehicle_no"))
     chit_no = first(builty.get("builty_no"), builty.get("lr_no"), builty.get("id"))
 
+    office_style = ParagraphStyle("ChitOffice", parent=normal, fontName=font_bold,
+                                   fontSize=8.5, leading=11, alignment=1)
+    office_box = Table([[para(office, office_style, 220)]], colWidths=[57*mm], rowHeights=[25*mm])
+    office_box.setStyle(TableStyle([
+        ("BOX",(0,0),(-1,-1),0.9,colors.HexColor("#123D78")),
+        ("VALIGN",(0,0),(-1,-1),"MIDDLE"),("ALIGN",(0,0),(-1,-1),"CENTER"),
+        ("LEFTPADDING",(0,0),(-1,-1),4),("RIGHTPADDING",(0,0),(-1,-1),4),
+        ("TOPPADDING",(0,0),(-1,-1),3),("BOTTOMPADDING",(0,0),(-1,-1),3),
+    ]))
     header = Table([
-        [_ChitTruck(), [para(firm_name, title),
-          para("Transport Contractor & Lignite Clearing Agent", subtitle)]],
-        ["", para("Md. 98795 09226 / 90160 11092", bold)],
-    ], colWidths=[35*mm, 150*mm], rowHeights=[20*mm, 7*mm])
+        [[para(firm_name, title),
+          para("Transport Contractor & Lignite Clearing Agent", subtitle),
+          para("Md. 98795 09226 / 90160 11092", bold)], office_box],
+    ], colWidths=[128*mm, 57*mm], rowHeights=[27*mm])
     header.setStyle(TableStyle([
-        ("BOX",(0,0),(-1,-1),0.9,colors.black),
-        ("LINEBELOW",(0,1),(-1,1),0.6,colors.black),
+        ("BOX",(0,0),(-1,-1),0.9,colors.HexColor("#123D78")),
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
-        ("ALIGN",(1,0),(1,-1),"CENTER"),
+        ("ALIGN",(0,0),(0,0),"CENTER"),
         ("LEFTPADDING",(0,0),(-1,-1),4),("RIGHTPADDING",(0,0),(-1,-1),4),
         ("TOPPADDING",(0,0),(-1,-1),2),("BOTTOMPADDING",(0,0),(-1,-1),2),
     ]))
@@ -506,8 +514,7 @@ def generate_chit_pdf(out_path, firm, builty, do_row):
         [para("Shri Mines Manager Sir,", bold)],
         [para("G.M.D.C.L.", bold)],
         [para("Lignite Project Matanamadh", bold)],
-        [para(office, subtitle)],
-    ], colWidths=[110*mm], rowHeights=[7*mm, 8*mm, 7*mm, 8*mm, 10*mm])
+    ], colWidths=[110*mm], rowHeights=[7*mm, 8*mm, 7*mm, 8*mm])
     addressee.setStyle(TableStyle([
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
         ("LEFTPADDING",(0,0),(-1,-1),5),("RIGHTPADDING",(0,0),(-1,-1),3),
