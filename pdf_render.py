@@ -484,16 +484,36 @@ def generate_chit_pdf(out_path, firm, builty, do_row):
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),("ALIGN",(0,0),(-1,-1),"CENTER"),
         ("LEFTPADDING",(0,0),(-1,-1),3),("RIGHTPADDING",(0,0),(-1,-1),3),
     ]))
-    top = Table([
-        [para("No. " + (chit_no or "........................"), bold),
-         para("Date: ................................", bold), quantity],
-        [para("To,", bold), para("Shri Mines Manager Sir,", bold), grade_code],
-        [para("G.M.D.C.L.", bold), para("Lignite Project Matanamadh", bold), ""],
-    ], colWidths=[55*mm, 75*mm, 55*mm], rowHeights=[25*mm, 11*mm, 9*mm])
-    top.setStyle(TableStyle([
-        ("BOX",(0,0),(-1,-1),0.8,colors.black),("INNERGRID",(0,0),(-1,-1),0.55,colors.black),
-        ("VALIGN",(0,0),(-1,-1),"MIDDLE"),("ALIGN",(2,0),(2,-1),"CENTER"),
+    number_date = Table([[
+        para("No. " + (chit_no or "........................"), bold),
+        para("Date: ................................", bold)
+    ]], colWidths=[92.5*mm, 92.5*mm], rowHeights=[9*mm])
+    number_date.setStyle(TableStyle([
+        ("BOX",(0,0),(-1,-1),0.8,colors.black),("INNERGRID",(0,0),(-1,-1),0.5,colors.black),
+        ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
         ("LEFTPADDING",(0,0),(-1,-1),5),("RIGHTPADDING",(0,0),(-1,-1),5),
+    ]))
+    addressee = Table([
+        [para("To,", bold)],
+        [para("Shri Mines Manager Sir,", bold)],
+        [para("G.M.D.C.L.", bold)],
+        [para("Lignite Project Matanamadh", bold)],
+    ], colWidths=[110*mm], rowHeights=[7*mm, 8*mm, 7*mm, 8*mm])
+    addressee.setStyle(TableStyle([
+        ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
+        ("LEFTPADDING",(0,0),(-1,-1),5),("RIGHTPADDING",(0,0),(-1,-1),3),
+    ]))
+    right_info = Table([[quantity], [grade_code]], colWidths=[75*mm], rowHeights=[25*mm, 22*mm])
+    right_info.setStyle(TableStyle([
+        ("VALIGN",(0,0),(-1,-1),"MIDDLE"),("ALIGN",(0,0),(-1,-1),"CENTER"),
+        ("LEFTPADDING",(0,0),(-1,-1),2),("RIGHTPADDING",(0,0),(-1,-1),2),
+    ]))
+    recipient_block = Table([[addressee, right_info]], colWidths=[110*mm, 75*mm], rowHeights=[47*mm])
+    recipient_block.setStyle(TableStyle([
+        ("BOX",(0,0),(-1,-1),0.8,colors.black),("INNERGRID",(0,0),(-1,-1),0.5,colors.black),
+        ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
+        ("LEFTPADDING",(0,0),(-1,-1),2),("RIGHTPADDING",(0,0),(-1,-1),2),
+        ("TOPPADDING",(0,0),(-1,-1),2),("BOTTOMPADDING",(0,0),(-1,-1),2),
     ]))
     intro = para("Sir, Jai Bharat. We request you to load the truck with good-quality lignite, without powder, as per the details of our party's D.O. given below.", normal)
     grade = Table([[para("'A' Loose Lignite", bold)]], colWidths=[185*mm], rowHeights=[9*mm])
@@ -526,7 +546,7 @@ def generate_chit_pdf(out_path, firm, builty, do_row):
     footer = Table([[para("For Mansi Coal Carriers", bold)]], colWidths=[185*mm], rowHeights=[16*mm])
     footer.setStyle(TableStyle([("ALIGN",(0,0),(-1,-1),"RIGHT"),("VALIGN",(0,0),(-1,-1),"BOTTOM"),
         ("LEFTPADDING",(0,0),(-1,-1),5),("RIGHTPADDING",(0,0),(-1,-1),8)]))
-    story = [header, Spacer(1, 3*mm), top, Spacer(1, 2*mm), intro, Spacer(1, 2*mm),
+    story = [header, Spacer(1, 3*mm), number_date, Spacer(1, 1*mm), recipient_block, Spacer(1, 2*mm), intro, Spacer(1, 2*mm),
              grade, Spacer(1, 2*mm), details, Spacer(1, 2*mm), instructions, footer]
     doc.build(story)
     return str(out_path)
