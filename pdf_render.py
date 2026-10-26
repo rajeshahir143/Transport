@@ -409,35 +409,99 @@ def generate_bill_pdf(out_path, firm, bill, builties):
     return str(out_path)
 
 
+class _ChitTruck:
+    """Small vector truck emblem for the loading chit header."""
+    def wrap(self, availWidth, availHeight):
+        return (32*mm, 25*mm)
+    def drawOn(self, canvas, x, y, _sW=0):
+        canvas.saveState()
+        canvas.setLineWidth(1.1)
+        canvas.rect(x+2*mm, y+7*mm, 23*mm, 10*mm)
+        for i in range(5):
+            canvas.line(x+(3+i*4)*mm, y+8*mm, x+(3+i*4)*mm, y+16*mm)
+        canvas.rect(x+25*mm, y+7*mm, 6*mm, 7*mm)
+        canvas.line(x+26*mm, y+12*mm, x+30*mm, y+12*mm)
+        canvas.circle(x+8*mm, y+5*mm, 2*mm)
+        canvas.circle(x+26*mm, y+5*mm, 2*mm)
+        canvas.restoreState()
+
+
 def generate_chit_pdf(out_path, firm, builty, do_row):
-    """Print the compact mine loading chit requested by the user."""
-    doc = SimpleDocTemplate(str(out_path), pagesize=A4, leftMargin=14*mm, rightMargin=14*mm, topMargin=12*mm, bottomMargin=12*mm)
-    normal = ParagraphStyle("ChitNormal", parent=CELL, fontSize=11, leading=15)
-    bold = ParagraphStyle("ChitBold", parent=normal, fontName="Helvetica-Bold")
-    title = ParagraphStyle("ChitTitle", parent=normal, fontName="Helvetica-Bold", fontSize=21, leading=25, alignment=1)
-    sub = ParagraphStyle("ChitSub", parent=normal, fontSize=10, alignment=1)
-    def para(v, style=normal): return Paragraph(_safe(v, 250), style)
+    """Generate a loading chit styled after the user's photographed stationery."""
+    doc = SimpleDocTemplate(str(out_path), pagesize=A4,
+        leftMargin=13*mm, rightMargin=13*mm, topMargin=10*mm, bottomMargin=10*mm)
+    normal = ParagraphStyle("ChitNormal2", parent=CELL, fontSize=10, leading=13)
+    bold = ParagraphStyle("ChitBold2", parent=normal, fontName="Helvetica-Bold")
+    title = ParagraphStyle("ChitTitle2", parent=normal, fontName="Helvetica-Bold",
+                           fontSize=21, leading=24, alignment=1)
+    subtitle = ParagraphStyle("ChitSub2", parent=normal, fontSize=9, leading=11, alignment=1)
+    def para(v, style=normal):
+        return Paragraph(_safe(v, 250), style)
+    def first(*values):
+        for value in values:
+            if value is not None and str(value).strip():
+                return str(value).strip()
+        return ""
     firm_name = str(firm.get("name") or "MANSI COAL CARRIER").strip().upper()
-    rows = [
-        [para(firm_name, title)],
-        [para("TRANSPORT CONTRACTOR AND LIGNITE CARRIER AGENT", sub)],
-        [para(str(firm.get("address") or "Office No. 1, Bhuj, Kutch"), sub)],
+    office = str(firm.get("address") or "Office No. 1, Sadhguru Complex, Bhuj, Kutch")
+    # Use the DO-linked values first; blank values remain blank rather than guessed.
+    party = first(do_row.get("customer_name"), builty.get("consignee"))
+    village = first(do_row.get("to_place"), builty.get("to_place"), builty.get("center_name"))
+    do_number = first(do_row.get("do_no"), do_row.get("gmdc_do_no"))
+    reg_no = first(do_row.get("registration_no"), do_row.get("regi_no"), do_row.get("reg_no"))
+    do_date = first(do_row.get("date"), do_row.get("do_date"))
+    truck_no = first(builty.get("truck_no"), builty.get("vehicle_no"))
+    header = Table([
+        [_ChitTruck(), [para(firm_name, title), para("TRANSPORT CONTRACTOR AND LIGNITE CARRIER AGENT", subtitle)]],
+        ["", para(office, subtitle)],
+    ], colWidths=[35*mm, 150*mm], rowHeights=[22*mm, 8*mm])
+    header.setStyle(TableStyle([
+        ("BOX",(0,0),(-1,-1),0.9,colors.black),
+        ("LINEBELOW",(0,0),(-1,0),0.7,colors.black),
+        ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
+        ("ALIGN",(1,0),(1,-1),"CENTER"),
+        ("LEFTPADDING",(0,0),(-1,-1),4),("RIGHTPADDING",(0,0),(-1,-1),4),
+        ("TOPPADDING",(0,0),(-1,-1),3),("BOTTOMPADDING",(0,0),(-1,-1),3),
+    ]))
+    top = Table([
+        [para("No. " + first(builty.get("builty_no")), bold),
+         para("Date: ................................", bold),
+         para("24 TON", bold)],
+        [para("To: Mines Manager / GMDC", normal),
+         para("GRADE 'A'", bold),
+         para("CODE NO: M595", bold)],
+    ], colWidths=[65*mm, 62*mm, 58*mm], rowHeights=[12*mm, 12*mm])
+    top.setStyle(TableStyle([
+        ("BOX",(0,0),(-1,-1),0.8,colors.black),("INNERGRID",(0,0),(-1,-1),0.6,colors.black),
+        ("VALIGN",(0,0),(-1,-1),"MIDDLE"),("ALIGN",(1,0),(-1,-1),"CENTER"),
+        ("LEFTPADDING",(0,0),(-1,-1),5),("RIGHTPADDING",(0,0),(-1,-1),5),
+    ]))
+    details_data = [
+        [para("PARTY NAME :", bold), para(party)],
+        [para("VILLAGE NAME :", bold), para(village)],
+        [para("D.O. NO. :", bold), para(do_number)],
+        [para("REGISTRATION NO. :", bold), para(reg_no)],
+        [para("D.O. DATE :", bold), para(do_date)],
+        [para("TRUCK NUMBER :", bold), para(truck_no)],
     ]
-    header = Table(rows, colWidths=[180*mm])
-    header.setStyle(TableStyle([("BOX",(0,0),(-1,-1),1,colors.black),("LINEBELOW",(0,0),(-1,0),1,colors.black),("TOPPADDING",(0,0),(-1,-1),5),("BOTTOMPADDING",(0,0),(-1,-1),5)]))
-    data = [
-        [para("No.: " + str(builty.get("builty_no") or ""), bold), para("Date: " + str(builty.get("date") or ""), bold)],
-        [para("CODE NO.: M595", bold), para("24 TON / A GRADE", bold)],
-        [para("Party Name :", bold), para(do_row.get("customer_name") or builty.get("consignee") or "")],
-        [para("Village Name :", bold), para(do_row.get("to_place") or builty.get("to_place") or builty.get("center_name") or "")],
-        [para("D.O. No. :", bold), para(do_row.get("do_no") or do_row.get("gmdc_do_no") or "")],
-        [para("Reg. No. :", bold), para(do_row.get("registration_no") or do_row.get("regi_no") or do_row.get("reg_no") or "")],
-        [para("D.O. Date :", bold), para(do_row.get("date") or do_row.get("do_date") or "")],
-        [para("Truck Number :", bold), para(builty.get("truck_no") or builty.get("vehicle_no") or "")],
-        [para("Driver Instructions :", bold), para("Mine to destination loading/transport instructions as applicable.")],
-    ]
-    details = Table(data, colWidths=[47*mm, 133*mm], rowHeights=[10*mm,10*mm,12*mm,12*mm,12*mm,12*mm,12*mm,12*mm,25*mm])
-    details.setStyle(TableStyle([("BOX",(0,0),(-1,-1),0.8,colors.black),("INNERGRID",(0,0),(-1,-1),0.6,colors.black),("VALIGN",(0,0),(-1,-1),"MIDDLE"),("LEFTPADDING",(0,0),(-1,-1),5),("RIGHTPADDING",(0,0),(-1,-1),5)]))
-    story = [header, Spacer(1, 7*mm), details, Spacer(1, 20*mm), Paragraph("For " + _safe(firm_name), bold)]
+    details = Table(details_data, colWidths=[52*mm, 133*mm], rowHeights=[15*mm]*6)
+    details.setStyle(TableStyle([
+        ("BOX",(0,0),(-1,-1),0.9,colors.black),("INNERGRID",(0,0),(-1,-1),0.7,colors.black),
+        ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
+        ("LEFTPADDING",(0,0),(-1,-1),6),("RIGHTPADDING",(0,0),(-1,-1),6),
+    ]))
+    instructions = Table([[para("VEHICLE OWNER / DRIVER INSTRUCTIONS :", bold)],
+        [para("Take care while transporting from mine to destination. Responsibility for material and road conditions remains with the driver as instructed by the company.")]],
+        colWidths=[185*mm], rowHeights=[10*mm, 20*mm])
+    instructions.setStyle(TableStyle([
+        ("BOX",(0,0),(-1,-1),0.8,colors.black),("INNERGRID",(0,0),(-1,-1),0.5,colors.black),
+        ("VALIGN",(0,0),(-1,-1),"MIDDLE"),("LEFTPADDING",(0,0),(-1,-1),5),
+        ("RIGHTPADDING",(0,0),(-1,-1),5),
+    ]))
+    footer = Table([[para("For " + firm_name, bold)]], colWidths=[185*mm], rowHeights=[22*mm])
+    footer.setStyle(TableStyle([("ALIGN",(0,0),(-1,-1),"RIGHT"),("VALIGN",(0,0),(-1,-1),"BOTTOM"),
+        ("LEFTPADDING",(0,0),(-1,-1),5),("RIGHTPADDING",(0,0),(-1,-1),8)]))
+    story = [header, Spacer(1, 5*mm), top, Spacer(1, 4*mm), details,
+             Spacer(1, 3*mm), instructions, Spacer(1, 20*mm), footer]
     doc.build(story)
     return str(out_path)
