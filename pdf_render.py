@@ -282,12 +282,13 @@ def generate_bill_pdf(out_path, firm, bill, builties):
     ]))
     company_head = Table([
         [para(firm_name, title), ""],
-        [para("GSTIN : " + str(firm.get("gstin") or ""), bold), ""],
-        [para("No. : " + str(bill_no), bold), para("Date : " + str(bill_date), bold)],
+        [para("GSTIN : " + str(firm.get("gstin") or ""), bold),
+         para("No. : " + str(bill_no), ParagraphStyle("BillNoRight", parent=bold, alignment=2))],
+        [para("Date : " + str(bill_date), bold), ""],
     ], colWidths=[91*mm, 91*mm], rowHeights=[10*mm, 7*mm, 7*mm])
     company_head.setStyle(TableStyle([
         ("SPAN",(0,0),(-1,0)),
-        ("SPAN",(0,1),(-1,1)),
+        ("SPAN",(0,2),(-1,2)),
     ]))
     company_head.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.8,colors.black), ("LINEBELOW",(0,0),(-1,0),0.45,colors.black),
