@@ -452,13 +452,44 @@ def generate_chit_pdf(out_path, firm, builty, do_row):
         ("LEFTPADDING",(0,0),(-1,-1),4),("RIGHTPADDING",(0,0),(-1,-1),4),
         ("TOPPADDING",(0,0),(-1,-1),2),("BOTTOMPADDING",(0,0),(-1,-1),2),
     ]))
+    tons_circle = Table([[para("24 Tons", bold)]], colWidths=[25*mm], rowHeights=[25*mm])
+    tons_circle.setStyle(TableStyle([
+        ("BOX",(0,0),(-1,-1),0,colors.white),
+        ("VALIGN",(0,0),(-1,-1),"MIDDLE"),("ALIGN",(0,0),(-1,-1),"CENTER"),
+        ("LEFTPADDING",(0,0),(-1,-1),1),("RIGHTPADDING",(0,0),(-1,-1),1),
+    ]))
+    # Draw a circular outline around the quantity using a custom flowable cell.
+    class _CircleTons(Flowable):
+        def __init__(self, text, style):
+            super().__init__()
+            self.text, self.style = text, style
+            self.width, self.height = 25*mm, 25*mm
+        def wrap(self, availWidth, availHeight):
+            return (self.width, self.height)
+        def draw(self):
+            self.canv.saveState()
+            self.canv.setLineWidth(0.9)
+            self.canv.circle(self.width/2, self.height/2, 11*mm)
+            p = Paragraph(self.text, self.style)
+            w, h = p.wrap(22*mm, 20*mm)
+            p.drawOn(self.canv, (self.width-w)/2, (self.height-h)/2)
+            self.canv.restoreState()
+    quantity = _CircleTons("24 Tons", bold)
+    grade_code = Table([
+        [para("Grade 'A'", bold)],
+        [para("CODE NO: M595", bold)],
+    ], colWidths=[37*mm], rowHeights=[11*mm, 11*mm])
+    grade_code.setStyle(TableStyle([
+        ("BOX",(0,0),(-1,-1),0.8,colors.black),("INNERGRID",(0,0),(-1,-1),0.55,colors.black),
+        ("VALIGN",(0,0),(-1,-1),"MIDDLE"),("ALIGN",(0,0),(-1,-1),"CENTER"),
+        ("LEFTPADDING",(0,0),(-1,-1),3),("RIGHTPADDING",(0,0),(-1,-1),3),
+    ]))
     top = Table([
         [para("No. " + (chit_no or "........................"), bold),
-         para("Date: ................................", bold), para("24 Tons", bold)],
-        [para("To,", bold), para("Shri Mines Manager Sir,", bold),
-         para("Grade 'A'\\nCODE NO: M595", bold)],
-        [para("G.M.D.C.L.", bold), para("Lignite Project Matanamadh", bold), para("", normal)],
-    ], colWidths=[55*mm, 75*mm, 55*mm], rowHeights=[10*mm, 9*mm, 9*mm])
+         para("Date: ................................", bold), quantity],
+        [para("To,", bold), para("Shri Mines Manager Sir,", bold), grade_code],
+        [para("G.M.D.C.L.", bold), para("Lignite Project Matanamadh", bold), ""],
+    ], colWidths=[55*mm, 75*mm, 55*mm], rowHeights=[25*mm, 11*mm, 9*mm])
     top.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.8,colors.black),("INNERGRID",(0,0),(-1,-1),0.55,colors.black),
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),("ALIGN",(2,0),(2,-1),"CENTER"),
