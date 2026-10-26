@@ -305,7 +305,7 @@ def generate_bill_pdf(out_path, firm, bill, builties):
         ("BOTTOMPADDING",(0,0),(-1,-1),1),
     ]))
     story.extend([party_block, Spacer(1, 3)])
-    heads = ["Sr.", "Date", "LR No.", "DO No.", "Truck No.", "Despatch\\nWt. (MT)", "Receipt\\nWt. (MT)", "Rate Rs. / TON", "Amount Rs."]
+    heads = ["Sr.", "Date", "LR No.", "DO No.", "Truck No.", "Despatch\\nWt. (MT)", "Receipt\\nWt. (MT)", "Rate / TON", "Amount Rs."]
     header_style = ParagraphStyle("BillColumnHeaderBold", parent=center, fontName="Helvetica-Bold",
                                   fontSize=8.5, leading=10, textColor=colors.black, alignment=1, wordWrap="CJK")
     rows = [[para(x, header_style) for x in heads]]
