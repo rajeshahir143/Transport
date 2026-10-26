@@ -282,9 +282,11 @@ def generate_bill_pdf(out_path, firm, bill, builties):
     ]))
     company_head = Table([
         [para(firm_name, title), ""],
+        [para(str(firm.get("address") or ""), center), ""],
         [para("GSTIN : " + str(firm.get("gstin") or ""), bold), para("Bill No. : " + str(bill_no), bold)],
-    ], colWidths=[122*mm, 60*mm], rowHeights=[10*mm, 7*mm])
-    company_head.setStyle(TableStyle([("SPAN",(0,0),(1,0))]))
+        [para("Phone : " + str(firm.get("phone") or ""), normal), para("Email : " + str(firm.get("email") or ""), normal)],
+    ], colWidths=[122*mm, 60*mm], rowHeights=[10*mm, 6*mm, 7*mm, 6*mm])
+    company_head.setStyle(TableStyle([("SPAN",(0,0),(1,0)), ("SPAN",(0,1),(1,1))]))
     company_head.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.8,colors.black), ("LINEBELOW",(0,0),(-1,0),0.45,colors.black),
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"), ("ALIGN",(0,0),(0,0),"CENTER"),
@@ -347,6 +349,12 @@ def generate_bill_pdf(out_path, firm, bill, builties):
     round_off = num(bill.get("round_off"))
     total = num(bill.get("total")) or subtotal + cgst + sgst + igst + round_off
     bank = str(firm.get("bank_details") or "").strip()
+    if not bank:
+        bank_parts = [
+            ("Bank Name", firm.get("bank_name")), ("A/c No.", firm.get("account_no")),
+            ("IFSC", firm.get("ifsc_code")), ("Branch", firm.get("branch_name")),
+        ]
+        bank = " | ".join(label + ": " + str(value).strip() for label, value in bank_parts if str(value or "").strip())
     terms_box = Table([
         [para("Terms &amp; Conditions", bold)],
         [para("1. Subject to Bhuj Jurisdiction.", normal)],
