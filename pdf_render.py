@@ -450,9 +450,8 @@ def generate_chit_pdf(out_path, firm, builty, do_row):
     header = Table([
         [_ChitTruck(), [para(firm_name, title),
           para("Transport Contractor & Lignite Clearing Agent", subtitle)]],
-        ["", para(office, subtitle)],
         ["", para("Md. 98795 09226 / 90160 11092", bold)],
-    ], colWidths=[35*mm, 150*mm], rowHeights=[20*mm, 8*mm, 7*mm])
+    ], colWidths=[35*mm, 150*mm], rowHeights=[20*mm, 7*mm])
     header.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.9,colors.black),
         ("LINEBELOW",(0,1),(-1,1),0.6,colors.black),
@@ -507,7 +506,8 @@ def generate_chit_pdf(out_path, firm, builty, do_row):
         [para("Shri Mines Manager Sir,", bold)],
         [para("G.M.D.C.L.", bold)],
         [para("Lignite Project Matanamadh", bold)],
-    ], colWidths=[110*mm], rowHeights=[7*mm, 8*mm, 7*mm, 8*mm])
+        [para(office, subtitle)],
+    ], colWidths=[110*mm], rowHeights=[7*mm, 8*mm, 7*mm, 8*mm, 10*mm])
     addressee.setStyle(TableStyle([
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
         ("LEFTPADDING",(0,0),(-1,-1),5),("RIGHTPADDING",(0,0),(-1,-1),3),
@@ -528,7 +528,7 @@ def generate_chit_pdf(out_path, firm, builty, do_row):
         [addressee, right_info],
         [intro, ""],
         [grade, ""],
-    ], colWidths=[110*mm, 75*mm], rowHeights=[47*mm, 17*mm, 11*mm])
+    ], colWidths=[110*mm, 75*mm], rowHeights=[57*mm, 17*mm, 11*mm])
     recipient_block.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.9,colors.black),
         ("INNERGRID",(0,0),(-1,-1),0.5,colors.black),
