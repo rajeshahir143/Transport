@@ -280,15 +280,22 @@ def generate_bill_pdf(out_path, firm, bill, builties):
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"), ("ALIGN",(0,0),(-1,-1),"CENTER"),
         ("LEFTPADDING",(0,0),(-1,-1),4), ("RIGHTPADDING",(0,0),(-1,-1),4),
     ]))
+    display_bill_date = str(bill_date or "")
+    try:
+        if len(display_bill_date) >= 10 and display_bill_date[4] == "-" and display_bill_date[7] == "-":
+            display_bill_date = display_bill_date[8:10] + "/" + display_bill_date[5:7] + "/" + display_bill_date[2:4]
+    except (TypeError, ValueError):
+        pass
+    invoice_title = ParagraphStyle("BillInvoiceTitle", parent=title, fontSize=13, leading=15)
     company_head = Table([
         [para(firm_name, title), ""],
         [para("GSTIN : " + str(firm.get("gstin") or ""), bold),
          para("No. : " + str(bill_no), ParagraphStyle("BillNoRight", parent=bold, alignment=2))],
-        [para("Date : " + str(bill_date), bold), ""],
+        [para("TAX INVOICE", invoice_title),
+         para("Date : " + display_bill_date, ParagraphStyle("BillDateRight", parent=bold, alignment=2))],
     ], colWidths=[91*mm, 91*mm], rowHeights=[10*mm, 7*mm, 7*mm])
     company_head.setStyle(TableStyle([
         ("SPAN",(0,0),(-1,0)),
-        ("SPAN",(0,2),(-1,2)),
     ]))
     company_head.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.8,colors.black), ("LINEBELOW",(0,0),(-1,0),0.45,colors.black),
