@@ -284,6 +284,7 @@ def generate_bill_pdf(out_path, firm, bill, builties):
         [para(firm_name, title), ""],
         [para("GSTIN : " + str(firm.get("gstin") or ""), bold), para("Bill No. : " + str(bill_no), bold)],
     ], colWidths=[122*mm, 60*mm], rowHeights=[10*mm, 7*mm])
+    company_head.setStyle(TableStyle([("SPAN",(0,0),(1,0))]))
     company_head.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.8,colors.black), ("LINEBELOW",(0,0),(-1,0),0.45,colors.black),
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"), ("ALIGN",(0,0),(0,0),"CENTER"),
@@ -351,7 +352,9 @@ def generate_bill_pdf(out_path, firm, bill, builties):
         [para("1. Subject to Bhuj Jurisdiction.", normal)],
         [para("2. GST - RCM not apply if otherwise agreed.", normal)],
         [para("3. Paid By Receiver", normal)],
-    ], colWidths=[96*mm], rowHeights=[7*mm,7*mm,7*mm,7*mm])
+        [para("BANK DETAILS", bold)],
+        [para(bank if bank else "Bank Details :", normal)],
+    ], colWidths=[96*mm], rowHeights=[6*mm,6*mm,6*mm,6*mm,7*mm,10*mm])
     terms_box.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.7,colors.black),
         ("LINEBELOW",(0,0),(-1,0),0.5,colors.black),
@@ -367,7 +370,7 @@ def generate_bill_pdf(out_path, firm, bill, builties):
         ["", para("Round Off", bold), para(money(round_off), bold)],
         ["", para("NET AMOUNT", bold), para(money(total), bold)],
         [para("Rupees : " + str(bill.get("amount_in_words") or ""), normal), "", ""],
-    ], colWidths=[96*mm, 42*mm, 44*mm], rowHeights=[29*mm,7*mm,7*mm,7*mm,7*mm,8*mm,7*mm])
+    ], colWidths=[96*mm, 42*mm, 44*mm], rowHeights=[41*mm,7*mm,7*mm,7*mm,7*mm,8*mm,7*mm])
     totals.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.55,colors.black),("INNERGRID",(0,0),(-1,-1),0.3,colors.black),
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),("LEFTPADDING",(0,0),(-1,-1),3),
@@ -376,18 +379,7 @@ def generate_bill_pdf(out_path, firm, bill, builties):
     ]))
     signature = Table([["", para("For " + firm_name, bold)]], colWidths=[122*mm, 60*mm], rowHeights=[14*mm])
     signature.setStyle(TableStyle([("ALIGN",(1,0),(1,0),"RIGHT"),("VALIGN",(0,0),(-1,-1),"BOTTOM"),("FONTNAME",(1,0),(1,0),"Helvetica-Bold")]))
-    story.extend([totals, Spacer(1, 3)])
-    bank_text = bank if bank else "Bank Details :"
-    bank_box = Table([[para("BANK DETAILS", bold)], [para(bank_text, normal)]],
-                     colWidths=[182*mm], rowHeights=[7*mm, 12*mm])
-    bank_box.setStyle(TableStyle([
-        ("BOX",(0,0),(-1,-1),0.7,colors.black),
-        ("LINEBELOW",(0,0),(-1,0),0.5,colors.black),
-        ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
-        ("LEFTPADDING",(0,0),(-1,-1),5), ("RIGHTPADDING",(0,0),(-1,-1),5),
-        ("TOPPADDING",(0,0),(-1,-1),1), ("BOTTOMPADDING",(0,0),(-1,-1),1),
-    ]))
-    story.extend([bank_box, signature])
+    story.extend([totals, Spacer(1, 3), signature])
     doc.build(story)
     return str(out_path)
 
