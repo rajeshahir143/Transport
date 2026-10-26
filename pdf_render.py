@@ -280,11 +280,15 @@ def generate_bill_pdf(out_path, firm, bill, builties):
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"), ("ALIGN",(0,0),(-1,-1),"CENTER"),
         ("LEFTPADDING",(0,0),(-1,-1),4), ("RIGHTPADDING",(0,0),(-1,-1),4),
     ]))
-    company_head = Table([[para(firm_name, title)], [para("GSTIN : " + str(firm.get("gstin") or ""), bold)]],
-        colWidths=[182*mm], rowHeights=[10*mm, 7*mm])
+    company_head = Table([
+        [para(firm_name, title), para("Bill No. : " + str(bill_no), bold)],
+        [para("GSTIN : " + str(firm.get("gstin") or ""), bold), para("", normal)],
+    ], colWidths=[122*mm, 60*mm], rowHeights=[10*mm, 7*mm])
     company_head.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.8,colors.black), ("LINEBELOW",(0,0),(-1,0),0.45,colors.black),
-        ("ALIGN",(0,0),(-1,-1),"CENTER"), ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
+        ("VALIGN",(0,0),(-1,-1),"MIDDLE"), ("ALIGN",(0,0),(0,0),"CENTER"),
+        ("ALIGN",(1,0),(1,-1),"RIGHT"), ("FONTNAME",(1,0),(1,-1),"Helvetica-Bold"),
+        ("LEFTPADDING",(0,0),(-1,-1),4), ("RIGHTPADDING",(0,0),(-1,-1),5),
     ]))
     story = [company_head, Spacer(1, 3), invoice_head, Spacer(1, 3)]
     party_block = Table([
@@ -371,8 +375,8 @@ def generate_bill_pdf(out_path, firm, bill, builties):
         ("RIGHTPADDING",(0,0),(-1,-1),3),("TOPPADDING",(0,0),(-1,-1),1),
         ("BOTTOMPADDING",(0,0),(-1,-1),1),
     ]))
-    signature = Table([[para("For " + firm_name, bold)]], colWidths=[182*mm], rowHeights=[14*mm])
-    signature.setStyle(TableStyle([("ALIGN",(0,0),(-1,-1),"RIGHT"),("VALIGN",(0,0),(-1,-1),"BOTTOM")]))
+    signature = Table([["", para("For " + firm_name, bold)]], colWidths=[122*mm, 60*mm], rowHeights=[14*mm])
+    signature.setStyle(TableStyle([("ALIGN",(1,0),(1,0),"RIGHT"),("VALIGN",(0,0),(-1,-1),"BOTTOM"),("FONTNAME",(1,0),(1,0),"Helvetica-Bold")]))
     story.extend([totals, signature])
     doc.build(story)
     return str(out_path)
