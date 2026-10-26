@@ -406,59 +406,19 @@ class _ChitTruck(Flowable):
 
 
 def generate_chit_pdf(out_path, firm, builty, do_row):
-    """Gujarati mine-loading chit; use a Gujarati-capable, HarfBuzz-shaped font."""
-    import os
-    import sys
-    from pathlib import Path
-    from reportlab.pdfbase import pdfmetrics
-    from reportlab.pdfbase.ttfonts import TTFont
-
+    """English mine-loading chit; use standard PDF fonts for consistent rendering."""
     font_regular = "Helvetica"
     font_bold = "Helvetica-Bold"
-    # Windows Nirmala UI contains Gujarati glyphs; use HarfBuzz shaping for conjuncts.
-    bundle_root = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
-    font_candidates = [
-        bundle_root / "fonts" / "NotoSansGujarati.ttf",
-        Path(__file__).resolve().parent / "fonts" / "NotoSansGujarati.ttf",
-        Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts" / "Nirmala.ttf",
-        Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts" / "NirmalaS.ttf",
-    ]
-    bold_candidates = [
-        Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts" / "NirmalaB.ttf",
-        Path(os.environ.get("WINDIR", r"C:\Windows")) / "Fonts" / "NirmalaS-Bold.ttf",
-    ]
-    font_path = next((p for p in font_candidates if p.is_file()), None)
-    if not font_path:
-        raise RuntimeError("Gujarati font file is missing. Rebuild the app with fonts/NotoSansGujarati.ttf included.")
-    if font_path:
-        try:
-            if "ChitGujarati" not in pdfmetrics.getRegisteredFontNames():
-                pdfmetrics.registerFont(TTFont("ChitGujarati", str(font_path), shapable=True))
-            font_regular = "ChitGujarati"
-            bold_path = next((p for p in bold_candidates if p.is_file()), None)
-            if bold_path:
-                if "ChitGujaratiBold" not in pdfmetrics.getRegisteredFontNames():
-                    pdfmetrics.registerFont(TTFont("ChitGujaratiBold", str(bold_path), shapable=True))
-                font_bold = "ChitGujaratiBold"
-            else:
-                font_bold = font_regular
-            pdfmetrics.registerFontFamily("ChitGujarati", normal=font_regular,
-                                          bold=font_bold, italic=font_regular, boldItalic=font_bold)
-        except Exception:
-            # Do not silently produce boxes for Gujarati; fail with a clear installation message.
-            raise RuntimeError(
-                "Gujarati font shaping is unavailable. Install Nirmala UI and uharfbuzz, then retry Chit Print."
-            )
 
     doc = SimpleDocTemplate(str(out_path), pagesize=A4,
         leftMargin=13*mm, rightMargin=13*mm, topMargin=7*mm, bottomMargin=7*mm)
     normal = ParagraphStyle("ChitGujaratiNormal", parent=CELL, fontName=font_regular,
-                            fontSize=12, leading=17, wordWrap="CJK")
+                            fontSize=10.5, leading=13, wordWrap="CJK")
     bold = ParagraphStyle("ChitGujaratiBoldStyle", parent=normal, fontName=font_bold)
     title = ParagraphStyle("ChitGujaratiTitle", parent=normal, fontName=font_bold,
-                           fontSize=22, leading=27, alignment=1)
+                           fontSize=18, leading=22, alignment=1)
     subtitle = ParagraphStyle("ChitGujaratiSub", parent=normal, fontName=font_regular,
-                              fontSize=10.5, leading=14, alignment=1)
+                              fontSize=9, leading=11, alignment=1)
     center = ParagraphStyle("ChitGujaratiCenter", parent=normal, alignment=1)
     def para(v="", style=normal, limit=350):
         return Paragraph(_safe(v, limit), style)
