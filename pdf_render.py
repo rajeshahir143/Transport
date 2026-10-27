@@ -458,6 +458,8 @@ def generate_chit_pdf(out_path, firm, builty, do_row):
     do_date = first(do_row.get("date"), do_row.get("do_date"))
     truck_no = first(builty.get("truck_no"), builty.get("vehicle_no"))
     chit_no = first(builty.get("builty_no"), builty.get("lr_no"), builty.get("id"))
+    # Print the date the Builty was created, not the DO date.
+    chit_date = first(builty.get("date"), builty.get("builty_date"), builty.get("created_at"))
 
     office_style = ParagraphStyle("ChitOffice", parent=normal, fontName=font_bold,
                                    fontSize=8.5, leading=11, alignment=1)
@@ -508,7 +510,7 @@ def generate_chit_pdf(out_path, firm, builty, do_row):
     ]))
     number_date = Table([[
         para("No. " + (chit_no or "........................"), bold),
-        para("Date: ................................", bold)
+        para("Date: " + (chit_date or "................................"), bold)
     ]], colWidths=[92.5*mm, 92.5*mm], rowHeights=[9*mm])
     number_date.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.8,colors.black),("INNERGRID",(0,0),(-1,-1),0.5,colors.black),
