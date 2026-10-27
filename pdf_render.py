@@ -273,13 +273,6 @@ def generate_bill_pdf(out_path, firm, bill, builties):
     do_text = ", ".join(do_numbers)
     bill_no = bill.get("bill_no") or ""
     bill_date = bill.get("bill_date") or ""
-    invoice_head = Table([[para("No. : " + str(bill_no), bold), para(invoice_label, title),
-        para("Date : " + str(bill_date), bold)]], colWidths=[55*mm, 75*mm, 52*mm], rowHeights=[14*mm])
-    invoice_head.setStyle(TableStyle([
-        ("BOX",(0,0),(-1,-1),1.2,colors.black), ("INNERGRID",(0,0),(-1,-1),0.8,colors.black),
-        ("VALIGN",(0,0),(-1,-1),"MIDDLE"), ("ALIGN",(0,0),(-1,-1),"CENTER"),
-        ("LEFTPADDING",(0,0),(-1,-1),4), ("RIGHTPADDING",(0,0),(-1,-1),4),
-    ]))
     display_bill_date = str(bill_date or "")
     try:
         if len(display_bill_date) >= 10 and display_bill_date[4] == "-" and display_bill_date[7] == "-":
@@ -304,7 +297,7 @@ def generate_bill_pdf(out_path, firm, bill, builties):
         ("FONTNAME",(0,1),(-1,1),"Helvetica-Bold"),
         ("LEFTPADDING",(0,0),(-1,-1),4), ("RIGHTPADDING",(0,0),(-1,-1),5),
     ]))
-    story = [company_head, Spacer(1, 3), invoice_head, Spacer(1, 3)]
+    story = [company_head, Spacer(1, 3)]
     party_block = Table([
         [para("M/s. " + str(party), bold), para("Mines : " + str(mines), bold)],
         [para(str(address), normal), para("Description of Transport Service : LIGNITE", normal)],
