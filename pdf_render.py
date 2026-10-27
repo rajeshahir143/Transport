@@ -360,7 +360,7 @@ def generate_bill_pdf(out_path, firm, bill, builties):
         ]
         bank = " | ".join(label + ": " + str(value).strip() for label, value in bank_parts if str(value or "").strip())
     terms_box = Table([
-        [para("Terms &amp; Conditions", bold)],
+        [para("Terms & Conditions", bold)],
         [para("1. Subject to Bhuj Jurisdiction.", normal)],
         [para("2. GST - RCM not apply if otherwise agreed.", normal)],
         [para("3. Paid By Receiver", normal)],
