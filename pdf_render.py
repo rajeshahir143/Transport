@@ -464,8 +464,7 @@ def generate_chit_pdf(out_path, firm, builty, do_row):
         [[para(firm_name, title),
           para("Transport Contractor & Lignite Clearing Agent", subtitle),
           para(office, office_style, 220)],
-         [para("For MANSI COAL CARRIERS", phone_style),
-          para("Md. 98795 09226 / 90160 11092", phone_style)]],
+         [para("Md. 98795 09226 / 90160 11092", phone_style)]],
     ], colWidths=[128*mm, 57*mm], rowHeights=[32*mm])
     header.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.9,colors.HexColor("#123D78")),
