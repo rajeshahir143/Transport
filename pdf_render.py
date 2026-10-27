@@ -152,8 +152,9 @@ def generate_builty_pdf(out_path, firm, builty, do_row, copy_label="CONSIGNOR CO
     story.append(cell_table(row1, [24*mm, 76*mm, 24*mm, 74*mm]))
 
     # Consignor / consignee columns
-    consignor_name = val(builty, "consignor", "G.M.D.C. LTD.")
-    consignor_gstin = val(do_row, "gmdc_gstin", "24AAACG7987P1ZT")
+    # Builty consignor must always show GMDC, not the selected transport company.
+    consignor_name = "G.M.D.C. LTD."
+    consignor_gstin = "24AAACG7987P1ZT"
     consignee_name = val(builty, "consignee", val(do_row, "customer_name", ""))
     destination = val(builty, "center_name", val(builty, "to_place", val(do_row, "to_place", "")))
     consignee_gstin = val(do_row, "customer_gstin", "")
