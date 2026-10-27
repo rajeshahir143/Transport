@@ -383,7 +383,7 @@ def generate_bill_pdf(out_path, firm, bill, builties):
         [Paragraph("BANK NAME: " + _safe(str(firm.get("bank_name") or "").strip(), 120), bank_style)],
         [Paragraph("ACCOUNT NUMBER: " + _safe(str(firm.get("account_no") or "").strip(), 120), bank_style)],
         [Paragraph("IFSC: " + _safe(str(firm.get("ifsc_code") or "").strip(), 120), bank_style)],
-    ], colWidths=[96*mm], rowHeights=[6*mm,5*mm,5*mm,5*mm,5*mm,5*mm,5*mm])
+    ], colWidths=[96*mm], rowHeights=[6*mm,5*mm,5*mm,5*mm])
     bank_box.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.7,colors.black),
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
