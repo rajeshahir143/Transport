@@ -459,18 +459,13 @@ def generate_chit_pdf(out_path, firm, builty, do_row):
 
     office_style = ParagraphStyle("ChitOffice", parent=normal, fontName=font_bold,
                                    fontSize=8.5, leading=11, alignment=1)
-    office_box = Table([[para(office, office_style, 220)]], colWidths=[57*mm], rowHeights=[25*mm])
-    office_box.setStyle(TableStyle([
-        ("BOX",(0,0),(-1,-1),0.9,colors.HexColor("#123D78")),
-        ("VALIGN",(0,0),(-1,-1),"MIDDLE"),("ALIGN",(0,0),(-1,-1),"CENTER"),
-        ("LEFTPADDING",(0,0),(-1,-1),4),("RIGHTPADDING",(0,0),(-1,-1),4),
-        ("TOPPADDING",(0,0),(-1,-1),3),("BOTTOMPADDING",(0,0),(-1,-1),3),
-    ]))
+    phone_style = ParagraphStyle("ChitPhone", parent=bold, alignment=1, fontSize=9, leading=11)
     header = Table([
         [[para(firm_name, title),
           para("Transport Contractor & Lignite Clearing Agent", subtitle),
-          para("Md. 98795 09226 / 90160 11092", bold)], office_box],
-    ], colWidths=[128*mm, 57*mm], rowHeights=[27*mm])
+          para(office, office_style, 220)],
+         para("Md. 98795 09226 / 90160 11092", phone_style)],
+    ], colWidths=[128*mm, 57*mm], rowHeights=[32*mm])
     header.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.9,colors.HexColor("#123D78")),
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
