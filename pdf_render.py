@@ -353,20 +353,23 @@ def generate_bill_pdf(out_path, firm, bill, builties):
     cgst, sgst, igst = num(bill.get("cgst")), num(bill.get("sgst")), num(bill.get("igst"))
     round_off = num(bill.get("round_off"))
     total = num(bill.get("total")) or subtotal + cgst + sgst + igst + round_off
-    bank = str(firm.get("bank_details") or "").strip()
+    bank_lines = [
+        ("Bank Name", firm.get("bank_name")),
+        ("Account Number", firm.get("account_no")),
+        ("IFSC", firm.get("ifsc_code")),
+    ]
+    # Keep each bank field on its own line; use company-master fields.
+    bank = "<br/>".join(label + ": " + _safe(str(value).strip(), 120)
+                        for label, value in bank_lines if str(value or "").strip())
     if not bank:
-        bank_parts = [
-            ("Bank Name", firm.get("bank_name")), ("A/c No.", firm.get("account_no")),
-            ("IFSC", firm.get("ifsc_code")), ("Branch", firm.get("branch_name")),
-        ]
-        bank = " | ".join(label + ": " + str(value).strip() for label, value in bank_parts if str(value or "").strip())
+        bank = _safe(str(firm.get("bank_details") or "").strip(), 250)
     terms_box = Table([
         [para("Terms & Conditions", bold)],
         [para("1. Subject to Bhuj Jurisdiction.", normal)],
         [para("2. GST - RCM not apply if otherwise agreed.", normal)],
         [para("3. Paid By Receiver", normal)],
         [para("BANK DETAILS", bold)],
-        [para(bank if bank else "Bank Details :", bank_style)],
+        [para(bank if bank else "Bank Name: <br/>Account Number: <br/>IFSC:", bank_style)],
     ], colWidths=[96*mm], rowHeights=[6*mm,6*mm,6*mm,6*mm,6*mm,6*mm])
     terms_box.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.7,colors.black),
