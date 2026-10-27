@@ -359,11 +359,9 @@ def generate_bill_pdf(out_path, firm, bill, builties):
         ("Account Number", firm.get("account_no")),
         ("IFSC", firm.get("ifsc_code")),
     ]
-    # Keep each bank field on its own line; use company-master fields.
+    # Keep bank fields on separate lines using the selected company master.
     bank_values = [(label, _safe(str(value).strip(), 120))
                    for label, value in bank_lines if str(value or "").strip()]
-    # Build real ReportLab paragraph markup; do not pass <br/> through the
-    # generic para() helper, which escapes markup and prints it literally.
     bank_markup = "<br/>".join(label + ": " + value for label, value in bank_values)
     if not bank_markup:
         bank_markup = "Bank Name: <br/>Account Number: <br/>IFSC:"
@@ -372,26 +370,44 @@ def generate_bill_pdf(out_path, firm, bill, builties):
         [para("1. Subject to Bhuj Jurisdiction.", normal)],
         [para("2. GST - RCM not apply if otherwise agreed.", normal)],
         [para("3. Paid By Receiver", normal)],
-        [para("BANK DETAILS", bold)],
-        [Paragraph(bank_markup, bank_style)],
-    ], colWidths=[96*mm], rowHeights=[6*mm,6*mm,6*mm,6*mm,6*mm,18*mm])
+    ], colWidths=[96*mm], rowHeights=[6*mm,6*mm,6*mm,6*mm])
     terms_box.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.7,colors.black),
         ("LINEBELOW",(0,0),(-1,0),0.5,colors.black),
-        ("LINEABOVE",(0,4),(-1,4),0.5,colors.black),
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
         ("LEFTPADDING",(0,0),(-1,-1),5), ("RIGHTPADDING",(0,0),(-1,-1),4),
         ("TOPPADDING",(0,0),(-1,-1),1), ("BOTTOMPADDING",(0,0),(-1,-1),1),
     ]))
+    bank_box = Table([
+        [para("BANK INFO:", bold)],
+        [Paragraph("ROUTING #: ______________________________", bank_style)],
+        [Paragraph("ACCOUNT #: ______________________________", bank_style)],
+        [Paragraph("ACCOUNT TYPE: ___________________________", bank_style)],
+        [Paragraph("BANK NAME: " + _safe(str(firm.get("bank_name") or "").strip(), 120), bank_style)],
+        [Paragraph("ACCOUNT NUMBER: " + _safe(str(firm.get("account_no") or "").strip(), 120), bank_style)],
+        [Paragraph("IFSC: " + _safe(str(firm.get("ifsc_code") or "").strip(), 120), bank_style)],
+    ], colWidths=[96*mm], rowHeights=[6*mm,5*mm,5*mm,5*mm,5*mm,5*mm,5*mm])
+    bank_box.setStyle(TableStyle([
+        ("BOX",(0,0),(-1,-1),0.7,colors.black),
+        ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
+        ("LEFTPADDING",(0,0),(-1,-1),5), ("RIGHTPADDING",(0,0),(-1,-1),4),
+        ("TOPPADDING",(0,0),(-1,-1),1), ("BOTTOMPADDING",(0,0),(-1,-1),1),
+    ]))
+    left_boxes = Table([[terms_box], [bank_box]], colWidths=[96*mm], rowHeights=[24*mm, 36*mm])
+    left_boxes.setStyle(TableStyle([
+        ("VALIGN",(0,0),(-1,-1),"TOP"),
+        ("LEFTPADDING",(0,0),(-1,-1),0), ("RIGHTPADDING",(0,0),(-1,-1),0),
+        ("TOPPADDING",(0,0),(-1,-1),0), ("BOTTOMPADDING",(0,0),(-1,-1),0),
+    ]))
     totals = Table([
-        [terms_box, para("SUB TOTAL", bold), para(money(subtotal), bold)],
+        [left_boxes, para("SUB TOTAL", bold), para(money(subtotal), bold)],
         ["", para("CGST", bold), para(money(cgst), bold)],
         ["", para("SGST", bold), para(money(sgst), bold)],
         ["", para("IGST", bold), para(money(igst), bold)],
         ["", para("Round Off", bold), para(money(round_off), bold)],
         ["", para("NET AMOUNT", bold), para(money(total), bold)],
         [para("Rupees : " + str(bill.get("amount_in_words") or ""), normal), "", ""],
-    ], colWidths=[96*mm, 42*mm, 44*mm], rowHeights=[48*mm,7*mm,7*mm,7*mm,7*mm,8*mm,7*mm])
+    ], colWidths=[96*mm, 42*mm, 44*mm], rowHeights=[60*mm,7*mm,7*mm,7*mm,7*mm,8*mm,7*mm])
     totals.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.55,colors.black),("INNERGRID",(0,0),(-1,-1),0.3,colors.black),
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),("LEFTPADDING",(0,0),(-1,-1),3),
