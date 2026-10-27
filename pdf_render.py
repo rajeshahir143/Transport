@@ -501,7 +501,6 @@ def generate_chit_pdf(out_path, firm, builty, do_row):
         [para("CODE NO: M595", bold)],
     ], colWidths=[37*mm], rowHeights=[11*mm, 11*mm])
     grade_code.setStyle(TableStyle([
-        ("BOX",(0,0),(-1,-1),0.8,colors.black),("INNERGRID",(0,0),(-1,-1),0.55,colors.black),
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),("ALIGN",(0,0),(-1,-1),"CENTER"),
         ("LEFTPADDING",(0,0),(-1,-1),3),("RIGHTPADDING",(0,0),(-1,-1),3),
     ]))
@@ -529,12 +528,11 @@ def generate_chit_pdf(out_path, firm, builty, do_row):
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),("ALIGN",(0,0),(-1,-1),"CENTER"),
         ("LEFTPADDING",(0,0),(-1,-1),2),("RIGHTPADDING",(0,0),(-1,-1),2),
     ]))
-    # One outer box contains the complete address/instruction block.
-    # Quantity stays circled; Grade and Code each have their own stacked box.
+    # One outer box contains the complete addressee, quantity, grade/code,
+    # instruction paragraph, and loose-lignite label; no inner boxes.
     intro = para("Sir, Jai Bharat. We request you to load the truck with good-quality lignite, without powder, as per the details of our party's D.O. given below.", normal)
     grade = Table([[para("'A' Loose Lignite", bold)]], colWidths=[185*mm], rowHeights=[9*mm])
     grade.setStyle(TableStyle([
-        ("BOX",(0,0),(-1,-1),0.8,colors.black),
         ("ALIGN",(0,0),(-1,-1),"CENTER"),("VALIGN",(0,0),(-1,-1),"MIDDLE")]))
     recipient_block = Table([
         [addressee, right_info],
@@ -543,7 +541,6 @@ def generate_chit_pdf(out_path, firm, builty, do_row):
     ], colWidths=[110*mm, 75*mm], rowHeights=[57*mm, 17*mm, 11*mm])
     recipient_block.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.9,colors.black),
-        ("INNERGRID",(0,0),(-1,-1),0.5,colors.black),
         ("SPAN",(0,1),(-1,1)),("SPAN",(0,2),(-1,2)),
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
         ("LEFTPADDING",(0,0),(-1,-1),4),("RIGHTPADDING",(0,0),(-1,-1),4),
