@@ -653,6 +653,7 @@ class App(tk.Tk):
             self.pd.column(c, width=w, anchor="w" if c in ("customer", "material") else "center")
         self.pd.pack(fill="both", expand=True)
         self.pd.bind("<<TreeviewSelect>>", self._on_pending_do_select)
+        self._pending_do_filter_trace = self.b_vars["do_no"].trace_add("write", self._filter_pending_dos_by_number)
 
         do_box = ttk.LabelFrame(right, text="DO Details (Auto from DO)", padding=7)
         do_box.pack(fill="x", pady=4)
@@ -986,7 +987,9 @@ class App(tk.Tk):
             if source in row.keys() and row[source] is not None:
                 self.b_vars[target].set(str(row[source]))
         if do_row:
+            self._setting_do_from_pending_selection = True
             self.b_vars["do_no"].set(do_row["do_no"] or "")
+            self._setting_do_from_pending_selection = False
             material = (do_row["material"] or "").strip()
             if len(material) > 90:
                 material = material[:87] + "..."
@@ -1069,6 +1072,30 @@ class App(tk.Tk):
         self.b_vars["quota_date"].set(quota_date.strip())
         self.b_vars["qty"].set(f"{available:.3f}")
         self._recalc_freight()
+
+    def _filter_pending_dos_by_number(self, *_args):
+        """Filter the Pending DO list as the user types a DO number in the Builty form."""
+        if getattr(self, "_setting_do_from_pending_selection", False) or not hasattr(self, "pd"):
+            return
+        term = self.b_vars["do_no"].get().strip().casefold()
+        con = db()
+        try:
+            rows = con.execute(
+                "SELECT id,do_no,gmdc_do_no,customer_name,material,remaining_qty "
+                "FROM dos WHERE remaining_qty>0.000001 ORDER BY id DESC"
+            ).fetchall()
+        finally:
+            con.close()
+        for iid in self.pd.get_children():
+            self.pd.delete(iid)
+        for row in rows:
+            do_number = str(row["do_no"] or row["gmdc_do_no"] or "")
+            if term and term not in do_number.casefold():
+                continue
+            self.pd.insert("", "end", iid=str(row["id"]), values=(
+                row["id"], do_number, row["customer_name"] or "", row["material"] or "",
+                "{:.3f}".format(_f(row["remaining_qty"]))
+            ))
 
     def _on_pending_do_select(self, _e=None):
         sel = self.pd.selection()
