@@ -380,9 +380,6 @@ def generate_bill_pdf(out_path, firm, bill, builties):
     ]))
     bank_box = Table([
         [para("BANK INFO:", bold)],
-        [Paragraph("ROUTING #: ______________________________", bank_style)],
-        [Paragraph("ACCOUNT #: ______________________________", bank_style)],
-        [Paragraph("ACCOUNT TYPE: ___________________________", bank_style)],
         [Paragraph("BANK NAME: " + _safe(str(firm.get("bank_name") or "").strip(), 120), bank_style)],
         [Paragraph("ACCOUNT NUMBER: " + _safe(str(firm.get("account_no") or "").strip(), 120), bank_style)],
         [Paragraph("IFSC: " + _safe(str(firm.get("ifsc_code") or "").strip(), 120), bank_style)],
