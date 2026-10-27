@@ -353,6 +353,7 @@ def generate_bill_pdf(out_path, firm, bill, builties):
     cgst, sgst, igst = num(bill.get("cgst")), num(bill.get("sgst")), num(bill.get("igst"))
     round_off = num(bill.get("round_off"))
     total = num(bill.get("total")) or subtotal + cgst + sgst + igst + round_off
+    bank_style = ParagraphStyle("BillBankDetails", parent=normal, fontSize=7.2, leading=8.4)
     bank_lines = [
         ("Bank Name", firm.get("bank_name")),
         ("Account Number", firm.get("account_no")),
