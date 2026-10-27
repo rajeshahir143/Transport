@@ -447,6 +447,8 @@ def generate_chit_pdf(out_path, firm, builty, do_row):
     # Avoid hard-coded MANSI branding/address when another company is selected.
     firm_name = first(firm.get("name"), "MANSI COAL CARRIERS")
     office = first(firm.get("address"), "")
+    if "Bhavnagar" in office or "Gujarat" in office:
+        office = "Office No. 1, Behind Sadguru Complex, Bhuj Madhapar Highway, Bhuj-Kutch."
     party = first(do_row.get("customer_name"), builty.get("consignee"))
     village = first(do_row.get("to_place"), builty.get("to_place"), builty.get("center_name"))
     do_number = first(do_row.get("do_no"), do_row.get("gmdc_do_no"))
