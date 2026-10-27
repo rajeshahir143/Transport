@@ -365,31 +365,28 @@ def generate_bill_pdf(out_path, firm, bill, builties):
         [para("1. Subject to Bhuj Jurisdiction.", normal)],
         [para("2. GST - RCM not apply if otherwise agreed.", normal)],
         [para("3. Paid By Receiver", normal)],
-    ], colWidths=[96*mm], rowHeights=[6*mm,6*mm,6*mm,6*mm])
+        [para("BANK DETAILS", bold)],
+        [para(bank if bank else "Bank Details :", bank_style)],
+    ], colWidths=[96*mm], rowHeights=[6*mm,6*mm,6*mm,6*mm,6*mm,6*mm])
     terms_box.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.7,colors.black),
         ("LINEBELOW",(0,0),(-1,0),0.5,colors.black),
-        ("FONTNAME",(0,3),(0,3),"Helvetica"),
+        ("LINEABOVE",(0,4),(-1,4),0.5,colors.black),
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
         ("LEFTPADDING",(0,0),(-1,-1),5), ("RIGHTPADDING",(0,0),(-1,-1),4),
         ("TOPPADDING",(0,0),(-1,-1),1), ("BOTTOMPADDING",(0,0),(-1,-1),1),
     ]))
-    bank_style = ParagraphStyle("BillBankDetails", parent=normal, fontSize=8.5, leading=10.5)
-    bank_text = Table([[para("BANK DETAILS", bold)], [para(bank if bank else "Bank Details :", bank_style)]], colWidths=[86*mm])
-    bank_text.setStyle(TableStyle([("BOX",(0,0),(-1,-1),0.5,colors.black), ("VALIGN",(0,0),(-1,-1),"TOP"), ("LEFTPADDING",(0,0),(-1,-1),3), ("RIGHTPADDING",(0,0),(-1,-1),3), ("TOPPADDING",(0,0),(-1,-1),2), ("BOTTOMPADDING",(0,0),(-1,-1),2)]))
     totals = Table([
         [terms_box, para("SUB TOTAL", bold), para(money(subtotal), bold)],
         ["", para("CGST", bold), para(money(cgst), bold)],
         ["", para("SGST", bold), para(money(sgst), bold)],
-        ["", bank_text, ""],
         ["", para("IGST", bold), para(money(igst), bold)],
         ["", para("Round Off", bold), para(money(round_off), bold)],
         ["", para("NET AMOUNT", bold), para(money(total), bold)],
         [para("Rupees : " + str(bill.get("amount_in_words") or ""), normal), "", ""],
-    ], colWidths=[96*mm, 42*mm, 44*mm], rowHeights=[24*mm,7*mm,7*mm,None,7*mm,7*mm,8*mm,7*mm])
+    ], colWidths=[96*mm, 42*mm, 44*mm], rowHeights=[36*mm,7*mm,7*mm,7*mm,7*mm,8*mm,7*mm])
     totals.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.55,colors.black),("INNERGRID",(0,0),(-1,-1),0.3,colors.black),
-        ("SPAN",(1,3),(2,3)),
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),("LEFTPADDING",(0,0),(-1,-1),3),
         ("RIGHTPADDING",(0,0),(-1,-1),3),("TOPPADDING",(0,0),(-1,-1),1),
         ("BOTTOMPADDING",(0,0),(-1,-1),1),
