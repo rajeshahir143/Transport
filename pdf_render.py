@@ -360,18 +360,21 @@ def generate_bill_pdf(out_path, firm, bill, builties):
         ("IFSC", firm.get("ifsc_code")),
     ]
     # Keep each bank field on its own line; use company-master fields.
-    bank = "<br/>".join(label + ": " + _safe(str(value).strip(), 120)
-                        for label, value in bank_lines if str(value or "").strip())
-    if not bank:
-        bank = _safe(str(firm.get("bank_details") or "").strip(), 250)
+    bank_values = [(label, _safe(str(value).strip(), 120))
+                   for label, value in bank_lines if str(value or "").strip()]
+    # Build real ReportLab paragraph markup; do not pass <br/> through the
+    # generic para() helper, which escapes markup and prints it literally.
+    bank_markup = "<br/>".join(label + ": " + value for label, value in bank_values)
+    if not bank_markup:
+        bank_markup = "Bank Name: <br/>Account Number: <br/>IFSC:"
     terms_box = Table([
         [para("Terms & Conditions", bold)],
         [para("1. Subject to Bhuj Jurisdiction.", normal)],
         [para("2. GST - RCM not apply if otherwise agreed.", normal)],
         [para("3. Paid By Receiver", normal)],
         [para("BANK DETAILS", bold)],
-        [para(bank if bank else "Bank Name: <br/>Account Number: <br/>IFSC:", bank_style)],
-    ], colWidths=[96*mm], rowHeights=[6*mm,6*mm,6*mm,6*mm,6*mm,6*mm])
+        [Paragraph(bank_markup, bank_style)],
+    ], colWidths=[96*mm], rowHeights=[6*mm,6*mm,6*mm,6*mm,6*mm,18*mm])
     terms_box.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.7,colors.black),
         ("LINEBELOW",(0,0),(-1,0),0.5,colors.black),
@@ -388,7 +391,7 @@ def generate_bill_pdf(out_path, firm, bill, builties):
         ["", para("Round Off", bold), para(money(round_off), bold)],
         ["", para("NET AMOUNT", bold), para(money(total), bold)],
         [para("Rupees : " + str(bill.get("amount_in_words") or ""), normal), "", ""],
-    ], colWidths=[96*mm, 42*mm, 44*mm], rowHeights=[36*mm,7*mm,7*mm,7*mm,7*mm,8*mm,7*mm])
+    ], colWidths=[96*mm, 42*mm, 44*mm], rowHeights=[48*mm,7*mm,7*mm,7*mm,7*mm,8*mm,7*mm])
     totals.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.55,colors.black),("INNERGRID",(0,0),(-1,-1),0.3,colors.black),
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),("LEFTPADDING",(0,0),(-1,-1),3),
