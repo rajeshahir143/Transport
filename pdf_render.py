@@ -443,8 +443,10 @@ def generate_chit_pdf(out_path, firm, builty, do_row):
             if value is not None and str(value).strip():
                 return str(value).strip()
         return ""
-    firm_name = "MANSI COAL CARRIERS"
-    office = "Office No. 1, Behind Sadguru Complex, Bhuj Madhapar Highway, Bhuj-Kutch."
+    # Chit stationery follows the currently selected company master.
+    # Avoid hard-coded MANSI branding/address when another company is selected.
+    firm_name = first(firm.get("name"), "MANSI COAL CARRIERS")
+    office = first(firm.get("address"), "")
     party = first(do_row.get("customer_name"), builty.get("consignee"))
     village = first(do_row.get("to_place"), builty.get("to_place"), builty.get("center_name"))
     do_number = first(do_row.get("do_no"), do_row.get("gmdc_do_no"))
