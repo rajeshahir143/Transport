@@ -281,19 +281,19 @@ def generate_bill_pdf(out_path, firm, bill, builties):
         pass
     invoice_title = ParagraphStyle("BillInvoiceTitle", parent=title, fontSize=13, leading=15, alignment=1)
     company_head = Table([
-        [para(firm_name, title), ""],
-        [para("GSTIN : " + str(firm.get("gstin") or ""), bold),
+        [para(firm_name, title), "", ""],
+        [para("GSTIN : " + str(firm.get("gstin") or ""), bold), "",
          para("No. : " + str(bill_no), ParagraphStyle("BillNoRight", parent=bold, alignment=2))],
-        [para("TAX INVOICE", invoice_title),
+        ["", para("TAX INVOICE", invoice_title),
          para("Date : " + display_bill_date, ParagraphStyle("BillDateRight", parent=bold, alignment=2))],
-    ], colWidths=[91*mm, 91*mm], rowHeights=[10*mm, 7*mm, 7*mm])
+    ], colWidths=[61*mm, 60*mm, 61*mm], rowHeights=[10*mm, 7*mm, 7*mm])
     company_head.setStyle(TableStyle([
         ("SPAN",(0,0),(-1,0)),
     ]))
     company_head.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.8,colors.black), ("LINEBELOW",(0,0),(-1,0),0.45,colors.black),
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"), ("ALIGN",(0,0),(0,0),"CENTER"),
-        ("ALIGN",(0,1),(0,1),"LEFT"), ("ALIGN",(1,1),(1,1),"RIGHT"),
+        ("ALIGN",(0,1),(0,1),"LEFT"), ("ALIGN",(2,1),(2,1),"RIGHT"),\n        ("ALIGN",(1,2),(1,2),"CENTER"), ("ALIGN",(2,2),(2,2),"RIGHT"),
         ("FONTNAME",(0,1),(-1,1),"Helvetica-Bold"),
         ("LEFTPADDING",(0,0),(-1,-1),4), ("RIGHTPADDING",(0,0),(-1,-1),5),
     ]))
@@ -372,7 +372,7 @@ def generate_bill_pdf(out_path, firm, bill, builties):
         ("LEFTPADDING",(0,0),(-1,-1),5), ("RIGHTPADDING",(0,0),(-1,-1),4),
         ("TOPPADDING",(0,0),(-1,-1),1), ("BOTTOMPADDING",(0,0),(-1,-1),1),
     ]))
-    bank_text = para("<b>BANK DETAILS</b><br/>" + (bank if bank else "Bank Details :"), normal)
+    bank_style = ParagraphStyle("BillBankDetails", parent=normal, fontSize=8.5, leading=10.5)\n    bank_text = para("<b>BANK DETAILS</b><br/>" + (bank if bank else "Bank Details :"), bank_style)
     totals = Table([
         [terms_box, para("SUB TOTAL", bold), para(money(subtotal), bold)],
         ["", para("CGST", bold), para(money(cgst), bold)],
@@ -382,7 +382,7 @@ def generate_bill_pdf(out_path, firm, bill, builties):
         ["", para("Round Off", bold), para(money(round_off), bold)],
         ["", para("NET AMOUNT", bold), para(money(total), bold)],
         [para("Rupees : " + str(bill.get("amount_in_words") or ""), normal), "", ""],
-    ], colWidths=[96*mm, 42*mm, 44*mm], rowHeights=[24*mm,7*mm,7*mm,10*mm,7*mm,7*mm,8*mm,7*mm])
+    ], colWidths=[96*mm, 42*mm, 44*mm], rowHeights=[24*mm,7*mm,7*mm,None,7*mm,7*mm,8*mm,7*mm])
     totals.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.55,colors.black),("INNERGRID",(0,0),(-1,-1),0.3,colors.black),
         ("SPAN",(1,3),(2,3)),
