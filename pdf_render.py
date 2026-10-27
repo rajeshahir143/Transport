@@ -293,7 +293,8 @@ def generate_bill_pdf(out_path, firm, bill, builties):
     company_head.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.8,colors.black), ("LINEBELOW",(0,0),(-1,0),0.45,colors.black),
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"), ("ALIGN",(0,0),(0,0),"CENTER"),
-        ("ALIGN",(0,1),(0,1),"LEFT"), ("ALIGN",(2,1),(2,1),"RIGHT"),\n        ("ALIGN",(1,2),(1,2),"CENTER"), ("ALIGN",(2,2),(2,2),"RIGHT"),
+        ("ALIGN",(0,1),(0,1),"LEFT"), ("ALIGN",(2,1),(2,1),"RIGHT"),
+        ("ALIGN",(1,2),(1,2),"CENTER"), ("ALIGN",(2,2),(2,2),"RIGHT"),
         ("FONTNAME",(0,1),(-1,1),"Helvetica-Bold"),
         ("LEFTPADDING",(0,0),(-1,-1),4), ("RIGHTPADDING",(0,0),(-1,-1),5),
     ]))
