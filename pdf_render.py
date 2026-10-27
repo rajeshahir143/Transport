@@ -569,7 +569,7 @@ def generate_chit_pdf(out_path, firm, builty, do_row):
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),("LEFTPADDING",(0,0),(-1,-1),5),
         ("RIGHTPADDING",(0,0),(-1,-1),5),
     ]))
-    footer = Table([[para("For Mansi Coal Carriers", bold)]], colWidths=[185*mm], rowHeights=[16*mm])
+    footer = Table([[para("For MANSI COAL CARRIERS", bold)]], colWidths=[185*mm], rowHeights=[16*mm])
     footer.setStyle(TableStyle([("ALIGN",(0,0),(-1,-1),"RIGHT"),("VALIGN",(0,0),(-1,-1),"BOTTOM"),
         ("LEFTPADDING",(0,0),(-1,-1),5),("RIGHTPADDING",(0,0),(-1,-1),8)]))
     story = [header, Spacer(1, 3*mm), number_date, Spacer(1, 1*mm), recipient_block, Spacer(1, 2*mm),
