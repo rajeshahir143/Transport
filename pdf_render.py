@@ -373,7 +373,8 @@ def generate_bill_pdf(out_path, firm, bill, builties):
         ("LEFTPADDING",(0,0),(-1,-1),5), ("RIGHTPADDING",(0,0),(-1,-1),4),
         ("TOPPADDING",(0,0),(-1,-1),1), ("BOTTOMPADDING",(0,0),(-1,-1),1),
     ]))
-    bank_style = ParagraphStyle("BillBankDetails", parent=normal, fontSize=8.5, leading=10.5)\n    bank_text = para("<b>BANK DETAILS</b><br/>" + (bank if bank else "Bank Details :"), bank_style)
+    bank_style = ParagraphStyle("BillBankDetails", parent=normal, fontSize=8.5, leading=10.5)
+    bank_text = para("<b>BANK DETAILS</b><br/>" + (bank if bank else "Bank Details :"), bank_style)
     totals = Table([
         [terms_box, para("SUB TOTAL", bold), para(money(subtotal), bold)],
         ["", para("CGST", bold), para(money(cgst), bold)],
