@@ -760,6 +760,11 @@ class App(tk.Tk):
         self.show_all_builtys = False
         ttk.Button(saved_head, text="All Builty", command=self.show_all_builty_records).pack(side="right")
         ttk.Button(saved_head, text="Selected DO Builty", command=self.show_selected_do_builtys).pack(side="right", padx=4)
+        self._builty_search_var = tk.StringVar()
+        ttk.Label(saved_head, text="Search:").pack(side="left", padx=(8, 3))
+        builty_search = ttk.Entry(saved_head, textvariable=self._builty_search_var, width=22)
+        builty_search.pack(side="left", padx=2)
+        builty_search.bind("<KeyRelease>", lambda _e: self.refresh_builty(refresh_pending=False))
         bcols = ("id", "no", "do", "party", "date", "truck", "qty", "freight", "status")
         self.bt = ttk.Treeview(right, columns=bcols, show="headings", height=5)
         for c, h, w in zip(bcols, ("ID", "Builty No.", "DO No.", "Party Name", "Date", "Truck No.", "Weight", "Amount", "Status"),
@@ -1286,8 +1291,12 @@ class App(tk.Tk):
                 query += " WHERE b.do_id=?"
                 params = (selected_do_id,)
             query += " ORDER BY b.id DESC"
+            search_text = self._builty_search_var.get().strip().casefold() if hasattr(self, "_builty_search_var") else ""
             for r in con.execute(query, params):
-                self.bt.insert("", "end", values=(r["id"], r["builty_no"], r["do_no"] or "", r["customer_name"] or "", r["date"], r["truck_no"], "{:.3f}".format(r["qty"]), "{:.2f}".format(r["freight_amount"]), "Billed" if r["billed"] else ("Paid" if r["freight_paid"] else "Pending")))
+                values = (r["id"], r["builty_no"], r["do_no"] or "", r["customer_name"] or "", r["date"], r["truck_no"], "{:.3f}".format(r["qty"]), "{:.2f}".format(r["freight_amount"]), "Billed" if r["billed"] else ("Paid" if r["freight_paid"] else "Pending"))
+                if search_text and not search_text in " ".join(str(value or "") for value in values).casefold():
+                    continue
+                self.bt.insert("", "end", values=values)
         finally:
             con.close()
     def create_builty(self):
@@ -1814,6 +1823,13 @@ class App(tk.Tk):
             tree.heading(col, text=heading)
             tree.column(col, width=width, anchor="e" if col in ("qty","rate","subtotal","gst","total") else "w")
         tree.column("id", width=55, stretch=False)
+        search_bar = ttk.Frame(frame)
+        search_bar.pack(fill="x", pady=(0, 6))
+        ttk.Label(search_bar, text="Search Bill No. / Party / Date / Amount:").pack(side="left")
+        bill_search_var = tk.StringVar()
+        bill_search_entry = ttk.Entry(search_bar, textvariable=bill_search_var, width=34)
+        bill_search_entry.pack(side="left", padx=(6, 4))
+        ttk.Button(search_bar, text="Clear", command=lambda: bill_search_var.set("")).pack(side="left")
         tree.pack(fill="both", expand=True)
         con = db()
         try:
@@ -1821,14 +1837,27 @@ class App(tk.Tk):
                                          subtotal,(COALESCE(cgst,0)+COALESCE(sgst,0)+COALESCE(igst,0)) AS gst,
                                          total,bill_type
                                   FROM bills ORDER BY id DESC""").fetchall()
+            bill_values = []
             for r in rows:
-                tree.insert("", "end", values=(
+                bill_values.append((
                     r["id"], r["bill_no"] or "", r["bill_date"] or "", r["customer_name"] or "",
                     "{:.3f}".format(r["total_qty"] or 0), "{:.2f}".format(r["rate_per_ton"] or 0),
                     "{:.2f}".format(r["subtotal"] or 0), "{:.2f}".format(r["gst"] or 0),
                     "{:.2f}".format(r["total"] or 0), r["bill_type"] or "MATERIAL"))
         finally:
             con.close()
+
+        def filter_bills(*_args):
+            term = bill_search_var.get().strip().casefold()
+            for item in tree.get_children():
+                tree.delete(item)
+            for values in bill_values:
+                if term and term not in " ".join(str(value or "") for value in values).casefold():
+                    continue
+                tree.insert("", "end", values=values)
+
+        bill_search_var.trace_add("write", filter_bills)
+        filter_bills()
 
         def open_selected_pdf():
             selection = tree.selection()
