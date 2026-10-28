@@ -244,6 +244,50 @@ def generate_builty_pdf(out_path, firm, builty, do_row, copy_label="CONSIGNOR CO
     doc.build(story)
     return str(out_path)
 
+def _amount_in_words_indian(amount):
+    """Convert a numeric amount to Indian rupee words for invoice printing."""
+    try:
+        value = round(float(amount or 0), 2)
+    except (TypeError, ValueError):
+        value = 0.0
+    rupees = int(abs(value))
+    paise = int(round((abs(value) - rupees) * 100))
+    ones = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
+            "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen",
+            "Seventeen", "Eighteen", "Nineteen"]
+    tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"]
+
+    def under_thousand(n):
+        parts = []
+        if n >= 100:
+            parts.extend([ones[n // 100], "Hundred"])
+            n %= 100
+        if n >= 20:
+            parts.append(tens[n // 10])
+            n %= 10
+        if n:
+            parts.append(ones[n])
+        return " ".join(parts)
+
+    def indian_words(n):
+        if n == 0:
+            return "Zero"
+        parts = []
+        for unit, divisor in (("Crore", 10000000), ("Lakh", 100000), ("Thousand", 1000)):
+            group = n // divisor
+            if group:
+                parts.extend([under_thousand(group), unit])
+                n %= divisor
+        if n:
+            parts.append(under_thousand(n))
+        return " ".join(parts)
+
+    result = ("Minus " if value < 0 else "") + indian_words(rupees) + " Rupees"
+    if paise:
+        result += " and " + indian_words(paise) + " Paise"
+    return result + " Only"
+
+
 def generate_bill_pdf(out_path, firm, bill, builties):
     """Print compact tax invoice inspired by the user's MANSI COAL CAREER sample."""
     doc = SimpleDocTemplate(str(out_path), pagesize=A4,
@@ -403,7 +447,7 @@ def generate_bill_pdf(out_path, firm, bill, builties):
         ["", para("IGST", bold), para(money(igst), bold)],
         ["", para("Round Off", bold), para(money(round_off), bold)],
         ["", para("NET AMOUNT", bold), para(money(total), bold)],
-        [para("Rupees : " + str(bill.get("amount_in_words") or ""), normal), "", ""],
+        [para("Rupees : " + _amount_in_words_indian(total), normal), "", ""],
     ], colWidths=[96*mm, 42*mm, 44*mm], rowHeights=[45*mm,7*mm,7*mm,7*mm,7*mm,8*mm,7*mm])
     totals.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.55,colors.black),("INNERGRID",(0,0),(-1,-1),0.3,colors.black),
