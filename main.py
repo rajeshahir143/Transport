@@ -1213,7 +1213,7 @@ class App(tk.Tk):
         # Selecting a DO should immediately show only that DO's existing
         # Builty records in the lower list; preserve the current DO selection.
         self.show_all_builtys = False
-        self.refresh_builty()
+        self.refresh_builty(refresh_pending=False)
 
     def _on_builty_weight_change(self, _event=None):
         basis = (self.b_vars["weight_basis"].get() or "Despatch").strip()
@@ -1242,31 +1242,40 @@ class App(tk.Tk):
         self.show_all_builtys = False
         self.refresh_builty()
 
-    def refresh_builty(self):
+    def refresh_builty(self, refresh_pending=True):
         if not hasattr(self, "pd"):
             return
-        selected_do_id = None
+        selected_do_id = getattr(self, "_selected_builty_do_id", None)
         try:
             selection = self.pd.selection()
             if selection:
                 selected_do_id = int(self.pd.item(selection[0], "values")[0])
         except (ValueError, IndexError, TypeError):
-            selected_do_id = None
-        for t in (self.pd, self.bt):
-            for x in t.get_children():
-                t.delete(x)
+            pass
+        # Critical: selecting a DO must not rebuild the pending tree. Rebuilding
+        # it re-triggers <<TreeviewSelect>>, calls this handler again, and can
+        # freeze the Tkinter UI (Not Responding). Only full refreshes reload it.
+        if refresh_pending:
+            for x in self.pd.get_children():
+                self.pd.delete(x)
+        for x in self.bt.get_children():
+            self.bt.delete(x)
         con = db()
         try:
-            for r in con.execute("SELECT id,do_no,gmdc_do_no,customer_name,material,remaining_qty,to_place FROM dos WHERE remaining_qty>0.000001 ORDER BY id DESC"):
-                self.pd.insert("", "end", values=(r["id"], r["do_no"] or r["gmdc_do_no"] or "", r["customer_name"], r["material"], "{:.3f}".format(r["remaining_qty"])))
-            if selected_do_id is not None:
-                for iid in self.pd.get_children():
-                    if int(self.pd.item(iid, "values")[0]) == selected_do_id:
-                        self.pd.selection_set(iid)
-                        break
-            selected_do_id = None
-            if not getattr(self, "show_all_builtys", False) and self.pd.selection():
-                selected_do_id = int(self.pd.item(self.pd.selection()[0], "values")[0])
+            if refresh_pending:
+                for r in con.execute("SELECT id,do_no,gmdc_do_no,customer_name,material,remaining_qty,to_place FROM dos WHERE remaining_qty>0.000001 ORDER BY id DESC"):
+                    self.pd.insert("", "end", values=(r["id"], r["do_no"] or r["gmdc_do_no"] or "", r["customer_name"], r["material"], "{:.3f}".format(r["remaining_qty"])))
+                if selected_do_id is not None:
+                    for iid in self.pd.get_children():
+                        if int(self.pd.item(iid, "values")[0]) == selected_do_id:
+                            self.pd.selection_set(iid)
+                            break
+            if not getattr(self, "show_all_builtys", False):
+                selection = self.pd.selection()
+                if selection:
+                    selected_do_id = int(self.pd.item(selection[0], "values")[0])
+            else:
+                selected_do_id = None
             query = """SELECT b.id,b.builty_no,b.do_id,d.do_no,d.customer_name,b.date,b.truck_no,b.qty,
                              b.freight_amount,b.billed,b.freight_paid
                       FROM builtys b JOIN dos d ON d.id=b.do_id"""
