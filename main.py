@@ -402,6 +402,7 @@ class App(tk.Tk):
         bar = ttk.Frame(f)
         bar.pack(fill="x")
         ttk.Button(bar, text="Upload PDF → Create DO", command=self.upload_pdf).pack(side="left")
+        ttk.Button(bar, text="＋ Manual DO Entry", command=self.manual_do_entry).pack(side="left", padx=6)
         ttk.Button(bar, text="Edit / Update Selected", command=self.edit_do).pack(side="left", padx=6)
         ttk.Button(bar, text="Delete Selected", command=self.delete_do).pack(side="left")
         self.show_all_dos = False
@@ -447,6 +448,10 @@ class App(tk.Tk):
                 ))
         finally:
             con.close()
+    def manual_do_entry(self):
+        # Manual DOs do not require a GMDC DO number or source PDF.
+        self._do_form(data={"uom": "TON", "from_place": "BHAVNAGAR"}, manual=True)
+
     def upload_pdf(self):
         p = filedialog.askopenfilename(filetypes=[("PDF files", "*.pdf")])
         if not p:
@@ -496,9 +501,9 @@ class App(tk.Tk):
         self.refresh_do()
         self.refresh_builty()
 
-    def _do_form(self, data, existing_id=None, source_pdf=None):
+    def _do_form(self, data, existing_id=None, source_pdf=None, manual=False):
         w = tk.Toplevel(self)
-        w.title("Edit DO" if existing_id else "Create DO from PDF")
+        w.title("Edit DO" if existing_id else ("Manual DO Entry" if manual else "Create DO from PDF"))
         w.geometry("640x620")
         w.transient(self)
         fields = [
@@ -534,6 +539,16 @@ class App(tk.Tk):
         def save():
             vals = {k: vars_[k].get().strip() for k, _ in fields}
             qty = _f(vals["qty"])
+            if manual:
+                if not vals["do_no"]:
+                    messagebox.showerror("Manual DO Entry", "DO No. is required.")
+                    return
+                if not vals["customer_name"]:
+                    messagebox.showerror("Manual DO Entry", "Customer Name is required.")
+                    return
+                if qty <= 0:
+                    messagebox.showerror("Manual DO Entry", "Qty must be greater than zero.")
+                    return
             try:
                 con = db()
                 schedule_rows = data.get("schedule_rows") or []
