@@ -95,6 +95,25 @@ class BackupRestoreTests(unittest.TestCase):
             con.close()
         self.assertTrue(list(self.root.glob("*_before_restore_*.db")))
 
+    def test_restore_repairs_stale_pending_qty_without_breaking_links(self):
+        con = self.dbmod.db()
+        try:
+            con.execute("UPDATE dos SET remaining_qty=0 WHERE do_no='DO-BEFORE'")
+            con.commit()
+        finally:
+            con.close()
+        backups = self.dbmod.backup_database()
+        db_backup = next(p for p in backups if p.suffix == '.db' and 'latest' not in p.name)
+        self._insert_linked_sample('AFTER')
+        self.dbmod.restore_database(db_backup)
+        self._assert_sample('BEFORE')
+        con = sqlite3.connect(str(self.dbmod.DB_PATH))
+        try:
+            remaining = con.execute("SELECT remaining_qty FROM dos WHERE do_no='DO-BEFORE'").fetchone()[0]
+            self.assertAlmostEqual(remaining, 7.0)
+        finally:
+            con.close()
+
     def test_sql_backup_restore_preserves_records_and_links(self):
         backups = self.dbmod.backup_database()
         sql_backup = next(p for p in backups if p.suffix == ".sql" and "latest" not in p.name)
