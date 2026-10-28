@@ -89,7 +89,7 @@ class POBuiltyTab:
               "eway_valid_date":r"E[\s-]*WAY\s*BILL\s*VALID\s*DATE\s*[:#-]?\s*([^\n]+)",
               "packing_list_no":r"PACKING\s*LIST\s*NO\.?\s*[:#-]\s*([^\n]+)",
               "consignor_gstin":r"CONSIGNOR[\s\S]{0,500}?GSTIN\s*[:#-]?\s*([0-9A-Z]{15})",
-              "consignee_gstin":r"CONSIGNEE[\s\S]{0,500}?GSTIN\s*(?:NO\.?\s*|NO/UNIQUE\s*NO\s*)?[:#-]?\s*([0-9A-Z]{15}|URP)",
+              "consignee_gstin":r"CONSIGNEE[\s\S]{0,3000}?GSTIN\s*(?:NO\.?\s*|NO/UNIQUE\s*NO\s*)?[:#-]?\s*([0-9A-Z]{15}|URP)",
               "truck_no":r"TRUCK\s*NO\.?\s*[:#-]\s*([A-Z0-9 -]+)",
               "driver_name":r"DRIVER'?S?\s*NAME\s*[:#-]\s*([^\n]+)",
               "truck_owner":r"TRUCK\s*OWNER\s*NAME\s*[:#-]\s*([^\n]+)",
