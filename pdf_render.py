@@ -151,14 +151,24 @@ def generate_builty_pdf(out_path, firm, builty, do_row, copy_label="CONSIGNOR CO
     row1 = [[P("L.R. No."), P(lr_no, bold), P("L.R. Date"), P(lr_date, bold)]]
     story.append(cell_table(row1, [24*mm, 76*mm, 24*mm, 74*mm]))
 
-    # Consignor / consignee columns
-    # Builty consignor must always show GMDC, not the selected transport company.
-    consignor_name = "G.M.D.C. LTD."
-    consignor_gstin = "24AAACG7987P1ZT"
+    # Consignor depends on the transporter saved on the DO:
+    # MANSI COAL CAREER uses GMDC as consignor; other transporters print their
+    # own name (for example SAGAR ENTERPRISE) without GMDC GSTIN.
+    transporter_name = str(val(do_row, "transporter_name", "") or "").strip()
+    normalized_transporter = " ".join(transporter_name.upper().replace(".", " ").split())
+    is_mansi = "MANSI COAL" in normalized_transporter or "MANSI COAL CAREER" in normalized_transporter
+    if is_mansi:
+        consignor_name = "G.M.D.C. LTD."
+        consignor_gstin = "24AAACG7987P1ZT"
+    else:
+        consignor_name = transporter_name or str(val(builty, "consignor", "") or "").strip() or "G.M.D.C. LTD."
+        consignor_gstin = ""
     consignee_name = val(builty, "consignee", val(do_row, "customer_name", ""))
     destination = val(builty, "center_name", val(builty, "to_place", val(do_row, "to_place", "")))
     consignee_gstin = val(do_row, "customer_gstin", "")
-    left_lines = [P(": CONSIGNOR :", bold), P(consignor_name), P(""), P("GSTIN : " + str(consignor_gstin))]
+    left_lines = [P(": CONSIGNOR :", bold), P(consignor_name)]
+    if consignor_gstin:
+        left_lines.extend([P(""), P("GSTIN : " + str(consignor_gstin))])
     right_lines = [P(": CONSIGNEE :", bold), P(consignee_name), P(destination), P("GSTIN : " + str(consignee_gstin))]
     parties = Table([[left_lines, right_lines]], colWidths=[99*mm, 99*mm])
     parties.setStyle(TableStyle([
