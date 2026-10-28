@@ -21,6 +21,7 @@ from tkinter import filedialog, messagebox, ttk
 from db import db, init_db, lookup_rate, DB_PATH, list_companies, get_active_company, set_active_company, BASE, display_company_name
 from pdf_parser import parse_pdf
 from pdf_render import generate_builty_pdf, generate_bill_pdf, generate_chit_pdf
+from po_builty import POBuiltyTab
 
 APP = "Radhe Radhe Developer — PDF DO / Builty / Bill"
 BASE = Path(__file__).resolve().parent
@@ -107,6 +108,10 @@ class App(tk.Tk):
         self.export_tab(nb)
         self.dashboard_tab(nb)
         self.swastik_import_tab(nb)
+        self.po_builty_tab(nb)
+
+    def po_builty_tab(self, nb):
+        self.po_builty_ui = POBuiltyTab(nb, self._current_firm, EXPORT_DIR, open_file)
 
     # ===================== DASHBOARD =====================
     def dashboard_tab(self, nb):
