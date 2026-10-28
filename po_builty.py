@@ -26,7 +26,7 @@ class POBuiltyTab:
               data_json TEXT NOT NULL DEFAULT '{}',
               created_at TEXT DEFAULT (datetime('now','localtime')),
               updated_at TEXT DEFAULT (datetime('now','localtime')))""")
-        f=ttk.Frame(nb,padding=8); nb.add(f,text="PO Builty")
+        f=ttk.Frame(nb,padding=8); self.frame=f; nb.add(f,text="PO Builty")
         ttk.Label(f,text="PO Based Builty Entry",font=("Segoe UI",17,"bold"),foreground="#B22222").pack(anchor="w")
         ttk.Label(f,text="Separate PO workflow. Existing DO → Builty → Bill data and links remain unchanged.",wraplength=1000).pack(anchor="w",pady=5)
         split=ttk.Panedwindow(f,orient="horizontal"); split.pack(fill="both",expand=True)
