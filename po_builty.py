@@ -7,6 +7,7 @@ from db import db
 
 FIELDS = [
 ("builty_company","Builty Company Name"),
+("builty_address","Builty Company Address"),
 ("lr_no","LR No."),("lr_date","LR Date"),("consignor_name","Consignor Name"),
 ("consignor_address","Consignor Address"),("consignor_gstin","Consignor GSTIN"),
 ("consignee_name","Consignee Name"),("consignee_address","Consignee Address"),
@@ -36,7 +37,7 @@ class POBuiltyTab:
         bar=ttk.Frame(left); bar.pack(fill="x")
         ttk.Button(bar,text="Import PO PDF",command=self.import_pdf).pack(side="left",padx=3)
         ttk.Button(bar,text="New / Clear",command=self.clear).pack(side="left",padx=3)
-        self.vars={k:tk.StringVar() for k,_ in FIELDS}; self.vars["lr_date"].set(datetime.now().strftime("%d/%m/%Y")); self.vars["builty_company"].set("MANSI COAL CARRIER")
+        self.vars={k:tk.StringVar() for k,_ in FIELDS}; self.vars["lr_date"].set(datetime.now().strftime("%d/%m/%Y")); self.vars["builty_company"].set("MANSI COAL CARRIER"); self.vars["builty_address"].set("At Post Kunriya, Tal. Bhuj-Kutch. Corr Add Office No b/h sadguru complex madhapar highway")
         self.vars["builty_company"].set("MANSI COAL CARRIER")
         self.selected_id=None
         grid=ttk.Frame(left); grid.pack(fill="both",expand=True)
@@ -60,6 +61,7 @@ class POBuiltyTab:
         for v in self.vars.values(): v.set("")
         self.vars["lr_date"].set(datetime.now().strftime("%d/%m/%Y"))
         self.vars["builty_company"].set("MANSI COAL CARRIER")
+        self.vars["builty_address"].set("At Post Kunriya, Tal. Bhuj-Kutch. Corr Add Office No b/h sadguru complex madhapar highway")
         for x in self.tree.selection(): self.tree.selection_remove(x)
 
     def import_pdf(self):
@@ -187,7 +189,7 @@ def generate_po_builty_pdf(out_path,firm,data):
         q=Table(rows,colWidths=widths,rowHeights=heights,hAlign="CENTER")
         q.setStyle(TableStyle([("BOX",(0,0),(-1,-1),0.8,colors.black),("INNERGRID",(0,0),(-1,-1),0.55,colors.black),("VALIGN",(0,0),(-1,-1),"MIDDLE"),("LEFTPADDING",(0,0),(-1,-1),3),("RIGHTPADDING",(0,0),(-1,-1),3),("TOPPADDING",(0,0),(-1,-1),2),("BOTTOMPADDING",(0,0),(-1,-1),2)]));return q
     name=str(data.get("builty_company") or firm.get("name") or "MANSI COAL CARRIER").upper()
-    address=firm.get("address") or "At Post Kunriya, Tal. Bhuj-Kutch. Corr Add Office No b/h sadguru complex madhapar highway"
+    address=data.get("builty_address") or firm.get("address") or "At Post Kunriya, Tal. Bhuj-Kutch. Corr Add Office No b/h sadguru complex madhapar highway"
     story=[t([[p("|| JAY MURLIDHAR ||")],[p(name,title)],[p("TRANSPORT CONTRACTOR & COMMISSION AGENT",sub)],[p(address,bold)]],[166*mm],[5*mm,11*mm,7*mm,7*mm]),
       t([[p("LR NO : "+data.get("lr_no",""),bold),p("LR DATE : "+data.get("lr_date",""),bold)]],[83*mm,83*mm],[7*mm])]
     leftparty=[p(": CONSIGNOR :",bold),p(data.get("consignor_name",""),bold),p(data.get("consignor_address","")),p("GSTIN: "+data.get("consignor_gstin",""),bold)]
