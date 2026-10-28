@@ -257,6 +257,7 @@ def _restore_final_backup(source):
                 staged = Path(staged_name)
                 staged.write_bytes(archive.read(internal))
                 _validate_database_file(staged)
+                _repair_restored_pending_quantities(staged)
                 staged_files.append(staged)
                 replacements.append((destination, staged))
         # All bundle members have passed integrity checks. Safety-copy every live
@@ -520,6 +521,34 @@ def lookup_rate(from_place, to_place, material):
     return float(row["rate_per_ton"]) if row else 0.0
 
 
+def _repair_restored_pending_quantities(database_path):
+    """Recalculate restored DO balances from linked Builty quantities."""
+    con = sqlite3.connect(str(database_path))
+    try:
+        tables = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        if not {'dos', 'builtys'}.issubset(tables):
+            return
+        cols = {r[1] for r in con.execute("PRAGMA table_info(dos)")}
+        if not {'id', 'qty', 'remaining_qty'}.issubset(cols):
+            return
+        con.execute("""UPDATE dos SET remaining_qty = MAX(0, COALESCE(qty,0) - COALESCE((
+            SELECT SUM(MAX(0, COALESCE(b.qty,0))) FROM builtys b WHERE b.do_id=dos.id
+        ),0))""")
+        if 'do_schedules' in tables:
+            scols = {r[1] for r in con.execute("PRAGMA table_info(do_schedules)")}
+            bcols = {r[1] for r in con.execute("PRAGMA table_info(builtys)")}
+            if {'do_id','qty','remaining_qty','schedule_date'}.issubset(scols) and 'quota_date' in bcols:
+                con.execute("""UPDATE do_schedules AS s SET remaining_qty = MAX(0, COALESCE(s.qty,0) - COALESCE((
+                    SELECT SUM(MAX(0, COALESCE(b.qty,0))) FROM builtys b
+                    WHERE b.do_id=s.do_id AND b.quota_date=s.schedule_date
+                ),0))""")
+        con.commit()
+        result = con.execute("PRAGMA quick_check").fetchone()
+        if not result or result[0] != 'ok':
+            raise ValueError('Database check failed while repairing restored DO balances.')
+    finally:
+        con.close()
+
 def restore_database(backup_path):
     """Validate a .db or .sql backup, save current data, then atomically restore it."""
     import os
@@ -560,6 +589,7 @@ def restore_database(backup_path):
             finally:
                 check.close()
             _validate_database_file(staged)
+        _repair_restored_pending_quantities(staged)
         if DB_PATH.exists():
             stamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
             safety = DB_PATH.with_name(DB_PATH.stem + "_before_restore_" + stamp + DB_PATH.suffix)
