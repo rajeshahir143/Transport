@@ -427,14 +427,15 @@ def generate_bill_pdf(out_path, firm, bill, builties):
         [Paragraph("BANK NAME: " + _safe(str(firm.get("bank_name") or "").strip(), 120), bank_style)],
         [Paragraph("ACCOUNT NUMBER: " + _safe(str(firm.get("account_no") or "").strip(), 120), bank_style)],
         [Paragraph("IFSC: " + _safe(str(firm.get("ifsc_code") or "").strip(), 120), bank_style)],
-    ], colWidths=[96*mm], rowHeights=[6*mm,5*mm,5*mm,5*mm])
+        [Paragraph("BRANCH: " + _safe(str(firm.get("branch_name") or "").strip(), 120), bank_style)],
+    ], colWidths=[96*mm], rowHeights=[6*mm,5*mm,5*mm,5*mm,5*mm])
     bank_box.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.7,colors.black),
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
         ("LEFTPADDING",(0,0),(-1,-1),5), ("RIGHTPADDING",(0,0),(-1,-1),4),
         ("TOPPADDING",(0,0),(-1,-1),1), ("BOTTOMPADDING",(0,0),(-1,-1),1),
     ]))
-    left_boxes = Table([[terms_box], [bank_box]], colWidths=[96*mm], rowHeights=[24*mm, 21*mm])
+    left_boxes = Table([[terms_box], [bank_box]], colWidths=[96*mm], rowHeights=[24*mm, 26*mm])
     left_boxes.setStyle(TableStyle([
         ("VALIGN",(0,0),(-1,-1),"TOP"),
         ("LEFTPADDING",(0,0),(-1,-1),0), ("RIGHTPADDING",(0,0),(-1,-1),0),
@@ -448,7 +449,7 @@ def generate_bill_pdf(out_path, firm, bill, builties):
         ["", para("Round Off", bold), para(money(round_off), bold)],
         ["", para("NET AMOUNT", bold), para(money(total), bold)],
         [para("Rupees : " + _amount_in_words_indian(total), normal), "", ""],
-    ], colWidths=[96*mm, 42*mm, 44*mm], rowHeights=[45*mm,7*mm,7*mm,7*mm,7*mm,8*mm,7*mm])
+    ], colWidths=[96*mm, 42*mm, 44*mm], rowHeights=[50*mm,7*mm,7*mm,7*mm,7*mm,8*mm,7*mm])
     totals.setStyle(TableStyle([
         ("BOX",(0,0),(-1,-1),0.55,colors.black),("INNERGRID",(0,0),(-1,-1),0.3,colors.black),
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),("LEFTPADDING",(0,0),(-1,-1),3),
