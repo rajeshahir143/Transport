@@ -6,6 +6,7 @@ from tkinter import filedialog, messagebox, ttk
 from db import db
 
 FIELDS = [
+("builty_company","Builty Company Name"),
 ("lr_no","LR No."),("lr_date","LR Date"),("consignor_name","Consignor Name"),
 ("consignor_address","Consignor Address"),("consignor_gstin","Consignor GSTIN"),
 ("consignee_name","Consignee Name"),("consignee_address","Consignee Address"),
@@ -35,7 +36,7 @@ class POBuiltyTab:
         bar=ttk.Frame(left); bar.pack(fill="x")
         ttk.Button(bar,text="Import PO PDF",command=self.import_pdf).pack(side="left",padx=3)
         ttk.Button(bar,text="New / Clear",command=self.clear).pack(side="left",padx=3)
-        self.vars={k:tk.StringVar() for k,_ in FIELDS}; self.vars["lr_date"].set(datetime.now().strftime("%d/%m/%Y"))
+        self.vars={k:tk.StringVar() for k,_ in FIELDS}; self.vars["lr_date"].set(datetime.now().strftime("%d/%m/%Y")); self.vars["builty_company"].set("MANSI COAL CARRIER")
         self.selected_id=None
         grid=ttk.Frame(left); grid.pack(fill="both",expand=True)
         for i,(key,label) in enumerate(FIELDS):
@@ -183,7 +184,7 @@ def generate_po_builty_pdf(out_path,firm,data):
     def t(rows,widths,heights=None):
         q=Table(rows,colWidths=widths,rowHeights=heights,hAlign="CENTER")
         q.setStyle(TableStyle([("BOX",(0,0),(-1,-1),0.8,colors.black),("INNERGRID",(0,0),(-1,-1),0.55,colors.black),("VALIGN",(0,0),(-1,-1),"MIDDLE"),("LEFTPADDING",(0,0),(-1,-1),3),("RIGHTPADDING",(0,0),(-1,-1),3),("TOPPADDING",(0,0),(-1,-1),2),("BOTTOMPADDING",(0,0),(-1,-1),2)]));return q
-    name=str(firm.get("name") or "MANSI COAL CARRIER").upper()
+    name=str(data.get("builty_company") or firm.get("name") or "MANSI COAL CARRIER").upper()
     address=firm.get("address") or "At Post Kunriya, Tal. Bhuj-Kutch. Corr Add Office No b/h sadguru complex madhapar highway"
     story=[t([[p("|| JAY MURLIDHAR ||")],[p(name,title)],[p("TRANSPORT CONTRACTOR & COMMISSION AGENT",sub)],[p(address,bold)]],[166*mm],[5*mm,11*mm,7*mm,7*mm]),
       t([[p("LR NO : "+data.get("lr_no",""),bold),p("LR DATE : "+data.get("lr_date",""),bold)]],[83*mm,83*mm],[7*mm])]
