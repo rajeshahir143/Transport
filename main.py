@@ -551,6 +551,19 @@ class App(tk.Tk):
                     return
             try:
                 con = db()
+                # Give manual-entry users a clear message instead of exposing
+                # SQLite's UNIQUE constraint error for a duplicate DO number.
+                if manual and not existing_id:
+                    duplicate = con.execute(
+                        "SELECT 1 FROM dos WHERE do_no=? LIMIT 1", (vals["do_no"],)
+                    ).fetchone()
+                    if duplicate:
+                        con.close()
+                        messagebox.showerror(
+                            "Manual DO Entry",
+                            f"DO No. '{vals['do_no']}' already exists. Enter a unique DO No."
+                        )
+                        return
                 schedule_rows = data.get("schedule_rows") or []
                 if existing_id:
                     # keep remaining_qty consistent: adjust by delta if qty changed
