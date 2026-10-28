@@ -59,6 +59,7 @@ class POBuiltyTab:
         self.selected_id=None
         for v in self.vars.values(): v.set("")
         self.vars["lr_date"].set(datetime.now().strftime("%d/%m/%Y"))
+        self.vars["builty_company"].set("MANSI COAL CARRIER")
         for x in self.tree.selection(): self.tree.selection_remove(x)
 
     def import_pdf(self):
