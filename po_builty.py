@@ -64,7 +64,7 @@ class POBuiltyTab:
         if not path: return
         try:
             from pypdf import PdfReader
-            text="\\n".join(page.extract_text() or "" for page in PdfReader(path).pages)
+            text="\n".join(page.extract_text() or "" for page in PdfReader(path).pages)
             if not text.strip():
                 # OCR fallback for scanned/image-only supplier PDFs.
                 try:
@@ -75,7 +75,7 @@ class POBuiltyTab:
                     for page in pdf_doc:
                         pix=page.get_pixmap(matrix=fitz.Matrix(2,2),alpha=False)
                         pages.append(pytesseract.image_to_string(Image.open(io.BytesIO(pix.tobytes("png")))))
-                    text="\\n".join(pages)
+                    text="\n".join(pages)
                 except Exception as ocr_error:
                     raise ValueError("Scanned PDF OCR is unavailable. Install PyMuPDF, Pillow, pytesseract and Tesseract OCR, or fill fields manually. "+str(ocr_error))
             if not text.strip(): raise ValueError("PDF text could not be extracted; fill fields manually.")
@@ -99,18 +99,18 @@ class POBuiltyTab:
                 m=re.search(pat,text,re.I)
                 if m: self.vars[key].set(re.sub(r"\s+"," ",m.group(1)).strip(" :\t")[:500]); n+=1
             for key,label in [("consignor_name","CONSIGNOR"),("consignee_name","CONSIGNEE")]:
-                m=re.search(label+r"\\s*:?\\s*\\n+\\s*([^\\n]+)",text,re.I)
+                m=re.search(label+r"\s*:?\s*\n+\s*([^\n]+)",text,re.I)
                 if m:
                     value=m.group(1).strip()
                     if value.upper() not in ("GSTIN","GSTIN NO/UNIQUE NO"):
                         self.vars[key].set(value[:500]); n+=1
-            m=re.search(r"KARAMTARA ENGINEERING LTD\\s*\\n+([^\\n]+)",text,re.I)
+            m=re.search(r"KARAMTARA ENGINEERING LTD\s*\n+([^\n]+)",text,re.I)
             if m: self.vars["consignor_address"].set(m.group(1).strip()[:500]); n+=1
-            m=re.search(r"KARAMTARA USA INC\\s*\\n+([^\\n]+)",text,re.I)
+            m=re.search(r"KARAMTARA USA INC\s*\n+([^\n]+)",text,re.I)
             if m: self.vars["consignee_address"].set(m.group(1).strip()[:500]); n+=1
-            m=re.search(r"(?m)^\\s*([0-9]{1,4})\\s+([0-9]+(?:\\.[0-9]+)?)\\s*$",text)
+            m=re.search(r"(?m)^\s*([0-9]{1,4})\s+([0-9]+(?:\.[0-9]+)?)\s*$",text)
             if m: self.vars["total_bundle"].set(m.group(1)); self.vars["weight_1"].set(m.group(2)); n+=2
-            m=re.search(r"(?m)^\\s*(Int_[A-Za-z0-9_.' -]{3,70}|[A-Za-z0-9_.' -]*MILS[A-Za-z0-9_.' -]*)\\s*$",text,re.I)
+            m=re.search(r"(?m)^\s*(Int_[A-Za-z0-9_.' -]{3,70}|[A-Za-z0-9_.' -]*MILS[A-Za-z0-9_.' -]*)\s*$",text,re.I)
             if m: self.vars["description"].set(m.group(1).strip()); n+=1
             messagebox.showinfo("Import PO PDF",f"Read {n} field(s). Please review fields and fill anything missing.",parent=self.frame)
         except Exception as e: messagebox.showerror("Import PO PDF",str(e))
