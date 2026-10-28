@@ -1235,8 +1235,10 @@ class App(tk.Tk):
             self.b_vars["driver_payable"].set(f"{payable:.2f}")
 
     def show_all_builty_records(self):
+        # Do not rebuild the Pending DO tree here: restoring its selection can
+        # fire <<TreeviewSelect>> and switch the view back to one DO's records.
         self.show_all_builtys = True
-        self.refresh_builty()
+        self.refresh_builty(refresh_pending=False)
 
     def show_selected_do_builtys(self):
         self.show_all_builtys = False
