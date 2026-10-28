@@ -1263,13 +1263,38 @@ class App(tk.Tk):
         finally:
             con.close()
     def create_builty(self):
+        # Use the explicit ID selected in the pending-DO picker; the modal can
+        # select a DO even when the main list is filtered or has not refreshed.
+        do_id = getattr(self, "_selected_builty_do_id", None)
         sel = self.pd.selection()
-        if not sel:
+        if do_id is None and sel:
+            try:
+                do_id = int(self.pd.item(sel[0])["values"][0])
+            except (ValueError, IndexError, TypeError):
+                do_id = None
+        if do_id is None:
             messagebox.showwarning("Select DO", "Select a pending DO first.")
             return
-        v = self.pd.item(sel[0])["values"]
-        do_id = int(v[0])
-        pending = _f(v[4])
+
+        # Always validate the live DB record and pending balance, not stale UI text.
+        con = db()
+        try:
+            current_do = con.execute(
+                "SELECT id, do_no, gmdc_do_no, remaining_qty FROM dos WHERE id=?",
+                (do_id,),
+            ).fetchone()
+        finally:
+            con.close()
+        if not current_do:
+            self._selected_builty_do_id = None
+            messagebox.showwarning("Select DO", "Selected DO no longer exists. Refresh and select a Pending DO.")
+            return
+        pending = _f(current_do["remaining_qty"])
+        if pending <= 0.000001:
+            self._selected_builty_do_id = None
+            messagebox.showwarning("Pending DO", "This DO has no pending quantity. Select another Pending DO.")
+            self.refresh_builty()
+            return
         qty = _f(self.b_vars["qty"].get())
         if qty <= 0:
             messagebox.showerror("Qty", "Loaded quantity must be greater than zero.")
