@@ -82,7 +82,7 @@ class POBuiltyTab:
             patterns={
               "lr_no":r"\bLR\s*NO\.?\s*[:#-]\s*([A-Z0-9/-]+)",
               "lr_date":r"\bLR\s*DATE\s*[:#-]\s*([0-9./-]+)",
-              "invoice_no":r"INVOICE\s*NO\.?\s*[:#-]\s*([^\n]+)",
+              "invoice_no":r"INVOI[CS]E\s*NO\.?\s*[:#-]\s*([^\n]+)",
               "challan_no":r"CHALAN\s*NO\.?\s*[:#-]\s*([^\n]+)",
               "eway_bill_no":r"E[\s-]*WAY\s*BILL\s*NO\.?\s*[:#-]\s*([^\n]+)",
               "eway_generate_date":r"E[\s-]*WAY\s*BILL\s*GENERATE\s*DATE\s*[:#-]\s*([^\n]+)",
@@ -104,8 +104,12 @@ class POBuiltyTab:
                     value=m.group(1).strip()
                     if value.upper() not in ("GSTIN","GSTIN NO/UNIQUE NO"):
                         self.vars[key].set(value[:500]); n+=1
+            if re.search(r"KARAMTARA ENGINEERING LTD",text,re.I):
+                self.vars["consignor_name"].set("KARAMTARA ENGINEERING LTD"); n+=1
             m=re.search(r"KARAMTARA ENGINEERING LTD\s*\n+([^\n]+)",text,re.I)
             if m: self.vars["consignor_address"].set(m.group(1).strip()[:500]); n+=1
+            if re.search(r"KARAMTARA USA INC",text,re.I):
+                self.vars["consignee_name"].set("KARAMTARA USA INC"); n+=1
             m=re.search(r"KARAMTARA USA INC\s*\n+([^\n]+)",text,re.I)
             if m: self.vars["consignee_address"].set(m.group(1).strip()[:500]); n+=1
             m=re.search(r"(?m)^\s*([0-9]{1,4})\s+([0-9]+(?:\.[0-9]+)?)\s*$",text)
