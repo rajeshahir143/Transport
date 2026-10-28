@@ -941,6 +941,9 @@ class App(tk.Tk):
                 self.pd.focus(original)
                 self.pd.see(original)
             self.clear_builty_form()
+            # clear_builty_form resets the form state, so restore the explicit
+            # selection after clearing even when the main tree has no matching row.
+            self._selected_builty_do_id = int(row["id"])
             if original:
                 self.pd.selection_set(original)
                 self._on_pending_do_select()
