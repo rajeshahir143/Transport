@@ -37,6 +37,7 @@ class POBuiltyTab:
         ttk.Button(bar,text="Import PO PDF",command=self.import_pdf).pack(side="left",padx=3)
         ttk.Button(bar,text="New / Clear",command=self.clear).pack(side="left",padx=3)
         self.vars={k:tk.StringVar() for k,_ in FIELDS}; self.vars["lr_date"].set(datetime.now().strftime("%d/%m/%Y")); self.vars["builty_company"].set("MANSI COAL CARRIER")
+        self.vars["builty_company"].set("MANSI COAL CARRIER")
         self.selected_id=None
         grid=ttk.Frame(left); grid.pack(fill="both",expand=True)
         for i,(key,label) in enumerate(FIELDS):
