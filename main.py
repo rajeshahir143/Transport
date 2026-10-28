@@ -1134,6 +1134,7 @@ class App(tk.Tk):
             return
         v = self.pd.item(sel[0])["values"]
         do_id = int(v[0])
+        self._selected_builty_do_id = do_id
         con = db()
         row = con.execute("SELECT * FROM dos WHERE id=?", (do_id,)).fetchone()
         con.close()
