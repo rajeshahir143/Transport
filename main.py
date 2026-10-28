@@ -1179,7 +1179,13 @@ class App(tk.Tk):
         else:
             self.b_vars["quota_select"].set("")
             self.b_vars["quota_date"].set(row["schedule_date"] or "")
-        self.b_vars["do_no"].set(row["do_no"] or "")
+        # Setting DO No. from a selected row must not trigger the typing filter:
+        # that filter rebuilds the Pending DO tree and clears its selection.
+        self._setting_do_from_pending_selection = True
+        try:
+            self.b_vars["do_no"].set(row["do_no"] or "")
+        finally:
+            self._setting_do_from_pending_selection = False
         self.b_vars["from_place"].set(row["from_place"] or "BHAVNAGAR")
         self.b_vars["to_place"].set(row["to_place"] or "")
         # DO Party Name comes from the DO customer; Supply Of Part comes from the transporter.
@@ -1204,6 +1210,10 @@ class App(tk.Tk):
         )
         self._recalc_freight()
         self.update_builty_preview()
+        # Selecting a DO should immediately show only that DO's existing
+        # Builty records in the lower list; preserve the current DO selection.
+        self.show_all_builtys = False
+        self.refresh_builty()
 
     def _on_builty_weight_change(self, _event=None):
         basis = (self.b_vars["weight_basis"].get() or "Despatch").strip()
