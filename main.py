@@ -941,12 +941,19 @@ class App(tk.Tk):
                 self.pd.focus(original)
                 self.pd.see(original)
             self.clear_builty_form()
-            # clear_builty_form resets the form state, so restore the explicit
-            # selection after clearing even when the main tree has no matching row.
+            # Ensure the chosen DO is represented in the main pending tree so
+            # the normal autofill path populates party/material/quota details.
+            if not original:
+                original = str(row["id"])
+                self.pd.insert("", "end", iid=original, values=(
+                    row["id"], row["do_no"] or row["gmdc_do_no"] or "",
+                    row["customer_name"] or "", row["material"] or "",
+                    f'{_f(row["remaining_qty"]):.3f}'
+                ))
             self._selected_builty_do_id = int(row["id"])
-            if original:
-                self.pd.selection_set(original)
-                self._on_pending_do_select()
+            self.pd.selection_set(original)
+            self.pd.focus(original)
+            self._on_pending_do_select()
             self.b_vars["qty"].set(f'{_f(row["remaining_qty"]):.3f}')
         tree.bind("<<TreeviewSelect>>", select_do)
         tree.bind("<Double-1>", lambda _e: use_selected())
