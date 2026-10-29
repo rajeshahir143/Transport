@@ -8,6 +8,7 @@ from db import db
 FIELDS = [
 ("po_no","PO No."),("po_date","PO Date"),("po_buyer","Buyer / Customer"),("po_vendor","Vendor / Supplier"),
 ("po_material","PO Material"),("po_qty","PO Quantity"),("po_uom","PO UOM"),("po_rate","PO Rate"),("po_delivery_date","Delivery Date"),
+("builty_qty","Builty Qty (TON)"),
 ("builty_company","Builty Company Name"),
 ("builty_address","Builty Company Address"),
 ("lr_no","LR No."),("lr_date","LR Date"),("consignor_name","Consignor Name"),
@@ -33,7 +34,15 @@ class POBuiltyTab:
               updated_at TEXT DEFAULT (datetime('now','localtime')))""")
         f=ttk.Frame(nb,padding=8); self.frame=f; nb.add(f,text="PO Builty")
         ttk.Label(f,text="PO Based Builty Entry — B167 Format",font=("Segoe UI",17,"bold"),foreground="#B22222").pack(anchor="w")
-        ttk.Label(f,text="Separate PO workflow. Existing DO → Builty → Bill data and links remain unchanged.",wraplength=1000).pack(anchor="w",pady=5)
+        ttk.Label(f,text="PO workflow. Link each Builty to a DO; saved Builty tonnage reduces that DO balance.",wraplength=1000).pack(anchor="w",pady=5)
+        do_bar=ttk.Frame(f); do_bar.pack(fill="x",pady=(2,6))
+        ttk.Label(do_bar,text="Linked DO:").pack(side="left",padx=(0,5))
+        self.do_var=tk.StringVar()
+        self.do_combo=ttk.Combobox(do_bar,textvariable=self.do_var,state="readonly",width=55)
+        self.do_combo.pack(side="left",padx=3)
+        self.do_combo.bind("<<ComboboxSelected>>",lambda _e:self.update_pending_label())
+        ttk.Button(do_bar,text="Refresh DOs",command=self.refresh_do_options).pack(side="left",padx=4)
+        self.pending_label=ttk.Label(do_bar,text="Pending: — TON",font=("Segoe UI",10,"bold")); self.pending_label.pack(side="left",padx=10)
         split=ttk.Panedwindow(f,orient="horizontal"); split.pack(fill="both",expand=True)
         left=ttk.Frame(split,padding=4); right=ttk.Frame(split,padding=4)
         split.add(left,weight=3); split.add(right,weight=2)
@@ -58,11 +67,61 @@ class POBuiltyTab:
             self.tree.heading(c,text=l); self.tree.column(c,width=w,anchor="w" if c=="party" else "center")
         self.tree.pack(fill="both",expand=True,pady=5); self.tree.bind("<<TreeviewSelect>>",self.load)
         self.refresh()
+        self.refresh_do_options()
+
+    def refresh_do_options(self):
+        try:
+            with db() as con:
+                rows=con.execute("SELECT id,do_no,gmdc_do_no,customer_name,qty,uom FROM dos ORDER BY id DESC").fetchall()
+                self.do_rows={}
+                labels=[]
+                for r in rows:
+                    label=f"#{r['id']} | DO {r['do_no'] or r['gmdc_do_no'] or r['id']} | {r['customer_name'] or ''} | {float(r['qty'] or 0):g} {r['uom'] or 'TON'}"
+                    self.do_rows[label]=dict(r)
+                    labels.append(label)
+                self.do_combo.configure(values=labels)
+                if self.do_var.get() not in self.do_rows:
+                    self.do_var.set("")
+            self.update_pending_label()
+        except Exception as exc:
+            messagebox.showerror("Load DOs",str(exc),parent=self.frame)
+
+    def _selected_do(self):
+        return getattr(self,"do_rows",{}).get(self.do_var.get())
+
+    def _do_pending(self, do_id, exclude_id=None):
+        with db() as con:
+            row=con.execute("SELECT qty FROM dos WHERE id=?",(do_id,)).fetchone()
+            if not row:return 0.0
+            total=float(row["qty"] or 0)
+            standard=con.execute("SELECT COALESCE(SUM(qty),0) FROM builtys WHERE do_id=?",(do_id,)).fetchone()[0]
+            po_rows=con.execute("SELECT id,data_json FROM po_builtys").fetchall()
+            po_total=0.0
+            for item in po_rows:
+                if exclude_id is not None and int(item["id"])==int(exclude_id):continue
+                try:
+                    payload=json.loads(item["data_json"] or "{}")
+                    if str(payload.get("linked_do_id",""))==str(do_id):
+                        po_total+=max(0.0,float(payload.get("builty_qty") or 0))
+                except (TypeError,ValueError):
+                    continue
+            return max(0.0,total-float(standard or 0)-po_total)
+
+    def update_pending_label(self):
+        do=self._selected_do()
+        if not do:
+            self.pending_label.configure(text="Pending: — TON")
+            return
+        pending=self._do_pending(int(do["id"]),self.selected_id)
+        self.pending_label.configure(text=f"Pending: {pending:g} TON")
 
     def clear(self):
         self.selected_id=None
         for v in self.vars.values(): v.set("")
         self.vars["lr_date"].set(datetime.now().strftime("%d/%m/%Y"))
+        self.vars["builty_qty"].set("")
+        self.do_var.set("")
+        self.update_pending_label()
         self.vars["builty_company"].set("MANSI COAL CARRIER")
         self.vars["builty_address"].set("At Post Kunriya, Tal. Bhuj-Kutch. Corr Add Office No b/h sadguru complex madhapar highway")
         for x in self.tree.selection(): self.tree.selection_remove(x)
@@ -159,17 +218,65 @@ class POBuiltyTab:
             messagebox.showinfo("Import PO PDF",f"Read {n} field(s). Please review fields and fill anything missing.",parent=self.frame)
         except Exception as e: messagebox.showerror("Import PO PDF",str(e))
 
+    def _sync_do_balance(self, do_id):
+        with db() as con:
+            standard=con.execute("SELECT COALESCE(SUM(qty),0) FROM builtys WHERE do_id=?",(do_id,)).fetchone()[0]
+            rows=con.execute("SELECT data_json FROM po_builtys").fetchall()
+            po_total=0.0
+            for item in rows:
+                try:
+                    payload=json.loads(item["data_json"] or "{}")
+                    if str(payload.get("linked_do_id",""))==str(do_id):
+                        po_total+=max(0.0,float(payload.get("builty_qty") or 0))
+                except (TypeError,ValueError):
+                    pass
+            con.execute("UPDATE dos SET remaining_qty=MAX(0,COALESCE(qty,0)-?-?) WHERE id=?",(float(standard or 0),po_total,do_id))
+
     def save(self):
         d={k:v.get().strip() for k,v in self.vars.items()}
-        if not d["lr_no"]: messagebox.showwarning("Save PO Builty","LR No. is required."); return False
+        if not d["lr_no"]:
+            messagebox.showwarning("Save PO Builty","LR No. is required.",parent=self.frame)
+            return False
+        do=self._selected_do()
+        if not do:
+            messagebox.showwarning("Save PO Builty","Select the DO linked to this Builty first.",parent=self.frame)
+            return False
+        try:
+            qty=float((d.get("builty_qty") or "").replace(",",""))
+            if qty<=0:
+                raise ValueError
+        except (TypeError,ValueError):
+            messagebox.showwarning("Save PO Builty","Enter a valid Builty Qty (TON) greater than zero.",parent=self.frame)
+            return False
+        pending=self._do_pending(int(do["id"]),self.selected_id)
+        if qty>pending+1e-6:
+            messagebox.showwarning("DO Quantity",f"Builty quantity exceeds the DO pending quantity.\nPending: {pending:.3f} TON\nEntered: {qty:.3f} TON",parent=self.frame)
+            return False
+        old_do_id=None
+        if self.selected_id:
+            with db() as con:
+                old=con.execute("SELECT data_json FROM po_builtys WHERE id=?",(self.selected_id,)).fetchone()
+            if old:
+                try:
+                    old_do_id=int(json.loads(old["data_json"] or "{}").get("linked_do_id") or 0) or None
+                except (TypeError,ValueError):
+                    pass
+        d["linked_do_id"]=str(do["id"])
         try:
             with db() as con:
                 if self.selected_id:
                     con.execute("UPDATE po_builtys SET lr_no=?,lr_date=?,data_json=?,updated_at=datetime('now','localtime') WHERE id=?",(d["lr_no"],d["lr_date"],json.dumps(d,ensure_ascii=False),self.selected_id))
                 else:
                     cur=con.execute("INSERT INTO po_builtys(lr_no,lr_date,data_json) VALUES(?,?,?)",(d["lr_no"],d["lr_date"],json.dumps(d,ensure_ascii=False))); self.selected_id=cur.lastrowid
-            self.refresh(); return True
-        except Exception as e: messagebox.showerror("Save PO Builty",str(e)); return False
+            self._sync_do_balance(int(do["id"]))
+            if old_do_id and old_do_id!=int(do["id"]):
+                self._sync_do_balance(old_do_id)
+            self.refresh()
+            self.refresh_do_options()
+            return True
+        except Exception as e:
+            messagebox.showerror("Save PO Builty",str(e),parent=self.frame)
+            return False
 
     def refresh(self):
         for x in self.tree.get_children(): self.tree.delete(x)
@@ -186,14 +293,32 @@ class POBuiltyTab:
         if r:
             d=json.loads(r["data_json"] or "{}")
             for k,v in self.vars.items():v.set(str(d.get(k,"")))
+            linked_id=str(d.get("linked_do_id",""))
+            for label,row in getattr(self,"do_rows",{}).items():
+                if str(row["id"])==linked_id:
+                    self.do_var.set(label)
+                    break
+            self.update_pending_label()
 
     def delete(self):
         s=self.tree.selection()
         if not s: messagebox.showwarning("Delete PO Builty","Select a record first."); return
         ident=int(self.tree.item(s[0])["values"][0])
         if not messagebox.askyesno("Delete PO Builty","Delete this PO Builty?"):return
-        with db() as con:con.execute("DELETE FROM po_builtys WHERE id=?",(ident,))
-        self.clear();self.refresh()
+        with db() as con:
+            row=con.execute("SELECT data_json FROM po_builtys WHERE id=?",(ident,)).fetchone()
+            linked_id=None
+            if row:
+                try:
+                    linked_id=int(json.loads(row["data_json"] or "{}").get("linked_do_id") or 0) or None
+                except (TypeError,ValueError):
+                    pass
+            con.execute("DELETE FROM po_builtys WHERE id=?",(ident,))
+        if linked_id:
+            self._sync_do_balance(linked_id)
+        self.clear()
+        self.refresh()
+        self.refresh_do_options()
 
     def print_pdf(self):
         d={k:v.get().strip() for k,v in self.vars.items()}
@@ -235,7 +360,7 @@ def generate_po_builty_pdf(out_path,firm,data):
     parties=Table([[t([[x] for x in leftparty],[83*mm]),rightmeta],[t([[x] for x in rightparty],[83*mm]),""]],colWidths=[83*mm,83*mm],rowHeights=[30*mm,28*mm])
     parties.setStyle(TableStyle([("BOX",(0,0),(-1,-1),0.8,colors.black),("INNERGRID",(0,0),(-1,-1),0.55,colors.black),("SPAN",(1,1),(1,1)),("VALIGN",(0,0),(-1,-1),"MIDDLE")]))
     story.append(parties)
-    weights=" / ".join(x for x in (data.get("weight_1",""),data.get("weight_2","")) if x)
+    weights=" / ".join(x for x in (data.get("weight_1",""),data.get("weight_2","")) if x) or ((str(data.get("builty_qty","")).strip()+" TON") if data.get("builty_qty") else "")
     story.append(t([[p("NO",bold),p("DESCRIPTION",bold),p("TOTAL BUNDLE",bold),p("TOTAL WEIGHT",bold)],[p("1",bold),p(data.get("description","")),p(data.get("total_bundle","")),p(weights)],[p("SUB TOTAL",bold),"",p(data.get("total_bundle",""),bold),p(weights,bold)]],[27*mm,76*mm,28*mm,35*mm],[11*mm,31*mm,7*mm]))
     truck=Table([[p("Truck No :",bold),p(data.get("truck_no",""),bold),p("CGST : "+data.get("cgst",""),bold)],[p("Drivers Name",bold),p(data.get("driver_name","")),p("SGST : "+data.get("sgst",""),bold)],[p("Address",bold),p(data.get("driver_address","")),p("IGST : "+data.get("igst",""),bold)],[p("Truck Owner Name",bold),p(data.get("truck_owner","")),p("TOTAL : "+data.get("total",""),bold)],[p("Mobile No",bold),p(data.get("mobile_no","")),p("",bold)]],colWidths=[27*mm,76*mm,63*mm],rowHeights=[7*mm]*5)
     truck.setStyle(TableStyle([("BOX",(0,0),(-1,-1),0.8,colors.black),("INNERGRID",(0,0),(-1,-1),0.55,colors.black),("VALIGN",(0,0),(-1,-1),"MIDDLE")]))
