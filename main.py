@@ -111,7 +111,31 @@ class App(tk.Tk):
         self.po_builty_tab(nb)
 
     def po_builty_tab(self, nb):
-        self.po_builty_ui = POBuiltyTab(nb, self._current_firm, EXPORT_DIR, open_file)
+        self.po_builty_ui = POBuiltyTab(nb, self._current_firm, EXPORT_DIR, open_file, self.create_do_from_po)
+
+    def create_do_from_po(self, po):
+        """Open the existing DO editor with editable values imported from a PO."""
+        raw_qty = _f(str(po.get("po_qty", "")).replace(",", ""))
+        raw_rate = _f(str(po.get("po_rate", "")).replace(",", ""))
+        po_uom = str(po.get("po_uom", "KG") or "KG").strip().upper()
+        # Existing DO/Builty quantities are managed in TON. Convert PO KG values
+        # to TON and price-per-KG to price-per-TON so downstream totals stay consistent.
+        if po_uom in ("KG", "KGS", "KILOGRAM", "KILOGRAMS"):
+            qty, rate, uom = raw_qty / 1000.0, raw_rate * 1000.0, "TON"
+        else:
+            qty, rate, uom = raw_qty, raw_rate, po_uom or "TON"
+        data = {
+            "po_no": po.get("po_no", ""), "po_date": po.get("po_date", ""),
+            "do_no": "", "do_date": po.get("po_date", ""),
+            "customer_name": po.get("po_vendor", "") or po.get("po_buyer", ""),
+            "material": po.get("po_material", ""), "qty": str(qty),
+            "uom": uom, "unit_price": str(rate),
+            "extended_price": str(qty * rate) if qty and rate else "",
+            "order_total": str(qty * rate) if qty and rate else "",
+            "schedule_date": po.get("po_delivery_date", ""),
+            "from_place": "BHAVANAGAR", "to_place": "",
+        }
+        self._do_form(data=data, source_pdf="PO:"+str(po.get("po_no", "")), manual=True)
 
     # ===================== DASHBOARD =====================
     def dashboard_tab(self, nb):
@@ -512,7 +536,8 @@ class App(tk.Tk):
         w.geometry("640x620")
         w.transient(self)
         fields = [
-            ("gmdc_do_no", "GMDC DO No"), ("do_no", "DO No"), ("do_date", "DO Date"),
+            ("gmdc_do_no", "GMDC DO No"), ("po_no", "PO No"), ("po_date", "PO Date"),
+            ("do_no", "DO No"), ("do_date", "DO Date"),
             ("customer_no", "Customer No"), ("customer_name", "Customer Name"),
             ("customer_gstin", "Customer GSTIN"), ("order_type", "Order Type"),
             ("bill_to", "Bill To"), ("ship_to", "Ship To"),
@@ -581,21 +606,22 @@ class App(tk.Tk):
                            customer_gstin=?, order_type=?, bill_to=?, ship_to=?, state=?, hsn=?,
                            material=?, schedule_date=?, qty=?, uom=?, unit_price=?, extended_price=?,
                            transporter_code=?, transporter_name=?, order_total=?,
-                           from_place=?, to_place=?, to_ma_dist=?, remaining_qty=?
-                           WHERE id=?""",
+                           from_place=?, to_place=?, to_ma_dist=?, remaining_qty=?, po_no=?, po_date=?
+                            WHERE id=?""",
                         (vals["do_no"], vals["gmdc_do_no"], vals["do_date"], vals["customer_no"], vals["customer_name"],
                          vals["customer_gstin"], vals["order_type"], vals["bill_to"], vals["ship_to"],
                          vals["state"], vals["hsn"], vals["material"], vals["schedule_date"],
                          qty, vals["uom"], _f(vals["unit_price"]), _f(vals["extended_price"]),
                          vals["transporter_code"], vals["transporter_name"], _f(vals["order_total"]),
-                         vals["from_place"], vals["to_place"], vals["to_place"], new_remaining, existing_id),
+                         vals["from_place"], vals["to_place"], vals["to_place"], new_remaining,
+                          vals.get("po_no", ""), vals.get("po_date", ""), existing_id),
                     )
                 else:
                     do_columns = (
                         "do_no,gmdc_do_no,do_date,customer_no,customer_name,customer_gstin,"
                         "order_type,bill_to,ship_to,state,hsn,material,schedule_date,qty,uom,"
                         "unit_price,extended_price,transporter_code,transporter_name,order_total,"
-                        "from_place,to_place,to_ma_dist,remaining_qty,source_pdf"
+                        "from_place,to_place,to_ma_dist,remaining_qty,source_pdf,po_no,po_date"
                     )
                     do_values = (
                         vals["do_no"], vals["gmdc_do_no"], vals["do_date"], vals["customer_no"], vals["customer_name"],
