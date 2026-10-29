@@ -1,4 +1,4 @@
-"""Separate PO Builty form and B167-style PDF. Independent from DO-linked records."""
+"""PO Builty form and B167-style PDF, linked to DO quantities in Rajasthan GMDC mode."""
 import json, re, tkinter as tk
 from datetime import datetime
 from pathlib import Path
