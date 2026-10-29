@@ -135,6 +135,11 @@ class POBuiltyTab:
             if m: self.vars["po_vendor"].set(m.group(1).strip()[:500]); n+=1
             m=re.search(r"(?i)(?:BUYER|PURCHASER)(?:\s+NAME)?\s*[:#-]?\s*([^\n]+)",text)
             if m: self.vars["po_buyer"].set(m.group(1).strip()[:500]); n+=1
+            # Supplier PO template may print company names without explicit Buyer/Vendor labels.
+            if re.search(r"ARVIND\s+LIMITED", text, re.I):
+                self.vars["po_buyer"].set("ARVIND LIMITED"); n+=1
+            if re.search(r"NILAV\s+MINETECH", text, re.I):
+                self.vars["po_vendor"].set("NILAV MINETECH"); n+=1
             m=re.search(r"(?i)(?:MATERIAL|ITEM\s*DESCRIPTION|DESCRIPTION)\s*[:#-]?\s*([^\n]+)",text)
             if m: self.vars["po_material"].set(m.group(1).strip()[:500]); n+=1
             m=re.search(r"(?i)\b(KG|KGS|MT|TON|TONNE|TONNES)\b",text)
