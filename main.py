@@ -127,7 +127,7 @@ class App(tk.Tk):
         data = {
             "po_no": po.get("po_no", ""), "po_date": po.get("po_date", ""),
             "do_no": "", "do_date": po.get("po_date", ""),
-            "customer_name": po.get("po_vendor", "") or po.get("po_buyer", ""),
+            "customer_name": po.get("po_buyer", "") or po.get("po_vendor", ""),
             "material": po.get("po_material", ""), "qty": str(qty),
             "uom": uom, "unit_price": str(rate),
             "extended_price": str(qty * rate) if qty and rate else "",
@@ -630,6 +630,7 @@ class App(tk.Tk):
                         qty, vals["uom"], _f(vals["unit_price"]), _f(vals["extended_price"]),
                         vals["transporter_code"], vals["transporter_name"], _f(vals["order_total"]),
                         vals["from_place"], vals["to_place"], vals["to_place"], qty, source_pdf or "",
+                        vals.get("po_no", ""), vals.get("po_date", ""),
                     )
                     # Build placeholders from the exact value count so the SQL cannot drift out of sync.
                     placeholders = ",".join("?" for _ in do_values)
