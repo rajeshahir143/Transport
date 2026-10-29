@@ -88,7 +88,11 @@ class App(tk.Tk):
         ttk.Label(top, text="Radhe Radhe Developer", style="Title.TLabel").pack(side="left")
         ttk.Label(top, text="   PDF → DO → Builty → Bill",
                   font=("Segoe UI", 11)).pack(side="left")
-        ttk.Label(top, text="Company:", font=("Segoe UI", 9, "bold")).pack(side="left", padx=(24, 4))
+        mode_bar = ttk.Frame(top)
+        mode_bar.pack(side="left", padx=(16, 8))
+        ttk.Button(mode_bar, text="GMDC", command=lambda: self.switch_workflow_mode("GMDC")).pack(side="left", padx=3)
+        ttk.Button(mode_bar, text="Rajasthan GMDC", command=lambda: self.switch_workflow_mode("Rajasthan GMDC")).pack(side="left", padx=3)
+        ttk.Label(top, text="Company:", font=("Segoe UI", 9, "bold")).pack(side="left", padx=(8, 4))
         self.company_var = tk.StringVar(value=get_active_company())
         self.company_combo = ttk.Combobox(top, textvariable=self.company_var, values=list_companies(), width=22, state="readonly")
         self.company_combo.pack(side="left")
@@ -109,6 +113,32 @@ class App(tk.Tk):
         self.dashboard_tab(nb)
         self.swastik_import_tab(nb)
         self.po_builty_tab(nb)
+        # Rajasthan GMDC uses its own company database and opens directly at PO Entry.
+        if get_active_company().casefold() == "rajasthan gmdc":
+            nb.select(self.po_builty_ui)
+
+    def switch_workflow_mode(self, mode):
+        """Switch between the existing GMDC company database and isolated Rajasthan GMDC data."""
+        from pathlib import Path
+        from db import BASE
+        current = get_active_company()
+        saved_company_file = Path(BASE) / "gmdc_last_company.txt"
+        if str(mode).casefold() == "rajasthan gmdc":
+            if current.casefold() != "rajasthan gmdc":
+                saved_company_file.write_text(current, encoding="utf-8")
+            target = "Rajasthan GMDC"
+        else:
+            try:
+                target = saved_company_file.read_text(encoding="utf-8").strip() or "Radhe Radhe Developer"
+            except OSError:
+                target = "Radhe Radhe Developer"
+            if target.casefold() == "rajasthan gmdc":
+                target = "Radhe Radhe Developer"
+        if target == current:
+            return
+        set_active_company(target)
+        init_db()
+        self._restart_app()
 
     def po_builty_tab(self, nb):
         self.po_builty_ui = POBuiltyTab(nb, self._current_firm, EXPORT_DIR, open_file, self.create_do_from_po)
