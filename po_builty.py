@@ -6,6 +6,8 @@ from tkinter import filedialog, messagebox, ttk
 from db import db
 
 FIELDS = [
+("po_no","PO No."),("po_date","PO Date"),("po_buyer","Buyer / Customer"),("po_vendor","Vendor / Supplier"),
+("po_material","PO Material"),("po_qty","PO Quantity"),("po_uom","PO UOM"),("po_rate","PO Rate"),("po_delivery_date","Delivery Date"),
 ("builty_company","Builty Company Name"),
 ("builty_address","Builty Company Address"),
 ("lr_no","LR No."),("lr_date","LR Date"),("consignor_name","Consignor Name"),
@@ -20,8 +22,9 @@ FIELDS = [
 ("cgst","CGST"),("sgst","SGST"),("igst","IGST"),("total","Total"),("notes","Notes / Terms")]
 
 class POBuiltyTab:
-    def __init__(self, nb, firm_getter, export_dir, open_file):
+    def __init__(self, nb, firm_getter, export_dir, open_file, create_do_callback=None):
         self.firm_getter, self.export_dir, self.open_file = firm_getter, Path(export_dir), open_file
+        self.create_do_callback = create_do_callback
         with db() as con:
             con.execute("""CREATE TABLE IF NOT EXISTS po_builtys(
               id INTEGER PRIMARY KEY AUTOINCREMENT, lr_no TEXT NOT NULL, lr_date TEXT,
@@ -36,6 +39,7 @@ class POBuiltyTab:
         split.add(left,weight=3); split.add(right,weight=2)
         bar=ttk.Frame(left); bar.pack(fill="x")
         ttk.Button(bar,text="Import PO PDF",command=self.import_pdf).pack(side="left",padx=3)
+        ttk.Button(bar,text="Create DO from PO",command=self.create_do).pack(side="left",padx=3)
         ttk.Button(bar,text="New / Clear",command=self.clear).pack(side="left",padx=3)
         self.vars={k:tk.StringVar() for k,_ in FIELDS}; self.vars["lr_date"].set(datetime.now().strftime("%d/%m/%Y")); self.vars["builty_company"].set("MANSI COAL CARRIER"); self.vars["builty_address"].set("At Post Kunriya, Tal. Bhuj-Kutch. Corr Add Office No b/h sadguru complex madhapar highway")
         self.selected_id=None
@@ -63,6 +67,16 @@ class POBuiltyTab:
         self.vars["builty_address"].set("At Post Kunriya, Tal. Bhuj-Kutch. Corr Add Office No b/h sadguru complex madhapar highway")
         for x in self.tree.selection(): self.tree.selection_remove(x)
 
+    def create_do(self):
+        if not self.create_do_callback:
+            messagebox.showerror("PO to DO", "DO workflow callback is not configured.", parent=self.frame)
+            return
+        data = {k: v.get().strip() for k, v in self.vars.items()}
+        if not data.get("po_no"):
+            messagebox.showwarning("PO to DO", "Import a PO PDF and confirm the PO No. first.", parent=self.frame)
+            return
+        self.create_do_callback(data)
+
     def import_pdf(self):
         path=filedialog.askopenfilename(title="Select PO PDF",filetypes=[("PDF files","*.pdf")])
         if not path: return
@@ -84,6 +98,11 @@ class POBuiltyTab:
                     raise ValueError("Scanned PDF OCR is unavailable. Install PyMuPDF, Pillow, pytesseract and Tesseract OCR, or fill fields manually. "+str(ocr_error))
             if not text.strip(): raise ValueError("PDF text could not be extracted; fill fields manually.")
             patterns={
+              "po_no":r"(?i)(?:PURCHASE\s*ORDER\s*(?:NO|NUMBER)|P\.?\s*O\.?\s*(?:NO|NUMBER))\s*[:#-]?\s*([A-Z0-9/-]{5,})",
+              "po_date":r"(?i)(?:PURCHASE\s*ORDER\s*DATE|P\.?\s*O\.?\s*DATE)\s*[:#-]?\s*([0-9]{1,2}[./-][0-9]{1,2}[./-][0-9]{2,4})",
+              "po_delivery_date":r"(?i)(?:DELIVERY\s*DATE|DELIVERY\s*BY|SCHEDULED\s*DELIVERY)\s*[:#-]?\s*([0-9]{1,2}[./-][0-9]{1,2}[./-][0-9]{2,4})",
+              "po_qty":r"(?i)(?:ORDER\s*QUANTITY|QUANTITY|QTY)\s*[:#-]?\s*([0-9,]+(?:\.[0-9]+)?)",
+              "po_rate":r"(?i)(?:UNIT\s*PRICE|RATE(?:\s*/\s*(?:KG|MT|TON))?)\s*[:#-]?\s*(?:INR|RS\.?|₹)?\s*([0-9,]+(?:\.[0-9]+)?)",
               "lr_no":r"\bLR\s*NO\.?\s*[:#-]\s*([A-Z0-9/-]+)",
               "lr_date":r"\bLR\s*DATE\s*[:#-]\s*([0-9./-]+)",
               "invoice_no":r"INVOI[CS]E\s*NO\.?\s*[:#-]\s*([^\n]+)",
@@ -108,6 +127,18 @@ class POBuiltyTab:
                     value=m.group(1).strip()
                     if value.upper() not in ("GSTIN","GSTIN NO/UNIQUE NO"):
                         self.vars[key].set(value[:500]); n+=1
+            # Tabular PO layouts often show the PO number without a field label.
+            if not self.vars["po_no"].get():
+                m=re.search(r"(?i)\b(4000[0-9]{6})\b", text)
+                if m: self.vars["po_no"].set(m.group(1)); n+=1
+            m=re.search(r"(?i)(?:VENDOR|SUPPLIER)(?:\s+NAME)?\s*[:#-]?\s*([^\n]+)",text)
+            if m: self.vars["po_vendor"].set(m.group(1).strip()[:500]); n+=1
+            m=re.search(r"(?i)(?:BUYER|PURCHASER)(?:\s+NAME)?\s*[:#-]?\s*([^\n]+)",text)
+            if m: self.vars["po_buyer"].set(m.group(1).strip()[:500]); n+=1
+            m=re.search(r"(?i)(?:MATERIAL|ITEM\s*DESCRIPTION|DESCRIPTION)\s*[:#-]?\s*([^\n]+)",text)
+            if m: self.vars["po_material"].set(m.group(1).strip()[:500]); n+=1
+            m=re.search(r"(?i)\b(KG|KGS|MT|TON|TONNE|TONNES)\b",text)
+            if m: self.vars["po_uom"].set(m.group(1).upper()); n+=1
             if re.search(r"KARAMTARA ENGINEERING LTD",text,re.I):
                 self.vars["consignor_name"].set("KARAMTARA ENGINEERING LTD"); n+=1
             m=re.search(r"KARAMTARA ENGINEERING LTD\s*\n+([^\n]+)",text,re.I)
