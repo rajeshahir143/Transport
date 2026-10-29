@@ -498,6 +498,12 @@ def init_db():
     existing = {row[1] for row in con.execute("PRAGMA table_info(dos)")}
     if "gmdc_do_no" not in existing:
         con.execute("ALTER TABLE dos ADD COLUMN gmdc_do_no TEXT")
+    # PO-origin metadata is optional and backward-compatible with existing DO records.
+    existing = {row[1] for row in con.execute("PRAGMA table_info(dos)")}
+    if "po_no" not in existing:
+        con.execute("ALTER TABLE dos ADD COLUMN po_no TEXT")
+    if "po_date" not in existing:
+        con.execute("ALTER TABLE dos ADD COLUMN po_date TEXT")
     con.commit()
     con.close()
     backup_database()
