@@ -21,7 +21,6 @@ from tkinter import filedialog, messagebox, ttk
 from db import db, init_db, lookup_rate, DB_PATH, list_companies, get_active_company, set_active_company, BASE, display_company_name
 from pdf_parser import parse_pdf
 from pdf_render import generate_builty_pdf, generate_bill_pdf, generate_chit_pdf
-from po_builty import POBuiltyTab
 
 APP = "Radhe Radhe Developer — PDF DO / Builty / Bill"
 BASE = Path(__file__).resolve().parent
@@ -108,36 +107,7 @@ class App(tk.Tk):
         self.export_tab(nb)
         self.dashboard_tab(nb)
         self.swastik_import_tab(nb)
-        self.po_builty_tab(nb)
 
-    def po_builty_tab(self, nb):
-        self.po_builty_ui = POBuiltyTab(nb, self._current_firm, EXPORT_DIR, open_file, self.create_do_from_po)
-
-    def create_do_from_po(self, po):
-        """Open the existing DO editor with editable values imported from a PO."""
-        raw_qty = _f(str(po.get("po_qty", "")).replace(",", ""))
-        raw_rate = _f(str(po.get("po_rate", "")).replace(",", ""))
-        po_uom = str(po.get("po_uom", "KG") or "KG").strip().upper()
-        # Existing DO/Builty quantities are managed in TON. Convert PO KG values
-        # to TON and price-per-KG to price-per-TON so downstream totals stay consistent.
-        if po_uom in ("KG", "KGS", "KILOGRAM", "KILOGRAMS"):
-            qty, rate, uom = raw_qty / 1000.0, raw_rate * 1000.0, "TON"
-        else:
-            qty, rate, uom = raw_qty, raw_rate, po_uom or "TON"
-        data = {
-            "po_no": po.get("po_no", ""), "po_date": po.get("po_date", ""),
-            "do_no": "", "do_date": po.get("po_date", ""),
-            "customer_name": po.get("po_buyer", "") or po.get("po_vendor", ""),
-            "material": po.get("po_material", ""), "qty": str(qty),
-            "uom": uom, "unit_price": str(rate),
-            "extended_price": str(qty * rate) if qty and rate else "",
-            "order_total": str(qty * rate) if qty and rate else "",
-            "schedule_date": po.get("po_delivery_date", ""),
-            "from_place": "BHAVANAGAR", "to_place": "",
-        }
-        self._do_form(data=data, source_pdf="PO:"+str(po.get("po_no", "")), manual=True)
-
-    # ===================== DASHBOARD =====================
     def dashboard_tab(self, nb):
         from datetime import date, timedelta
         f = ttk.Frame(nb, padding=14)
