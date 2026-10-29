@@ -32,7 +32,7 @@ class POBuiltyTab:
               created_at TEXT DEFAULT (datetime('now','localtime')),
               updated_at TEXT DEFAULT (datetime('now','localtime')))""")
         f=ttk.Frame(nb,padding=8); self.frame=f; nb.add(f,text="PO Builty")
-        ttk.Label(f,text="PO Based Builty Entry",font=("Segoe UI",17,"bold"),foreground="#B22222").pack(anchor="w")
+        ttk.Label(f,text="PO Based Builty Entry — B167 Format",font=("Segoe UI",17,"bold"),foreground="#B22222").pack(anchor="w")
         ttk.Label(f,text="Separate PO workflow. Existing DO → Builty → Bill data and links remain unchanged.",wraplength=1000).pack(anchor="w",pady=5)
         split=ttk.Panedwindow(f,orient="horizontal"); split.pack(fill="both",expand=True)
         left=ttk.Frame(split,padding=4); right=ttk.Frame(split,padding=4)
@@ -226,7 +226,8 @@ def generate_po_builty_pdf(out_path,firm,data):
     name=str(data.get("builty_company") or firm.get("name") or "MANSI COAL CARRIER").upper()
     address=data.get("builty_address") or firm.get("address") or "At Post Kunriya, Tal. Bhuj-Kutch. Corr Add Office No b/h sadguru complex madhapar highway"
     story=[t([[p("|| JAY MURLIDHAR ||")],[p(name,title)],[p("TRANSPORT CONTRACTOR & COMMISSION AGENT",sub)],[p(address,bold)]],[166*mm],[5*mm,11*mm,7*mm,7*mm]),
-      t([[p("LR NO : "+data.get("lr_no",""),bold),p("LR DATE : "+data.get("lr_date",""),bold)]],[83*mm,83*mm],[7*mm])]
+      t([[p("LR NO : "+data.get("lr_no",""),bold),p("LR DATE : "+data.get("lr_date",""),bold)]],[83*mm,83*mm],[7*mm]),
+      t([[p("PO NO : "+data.get("po_no",""),bold),p("PO DATE : "+data.get("po_date",""),bold)]],[83*mm,83*mm],[7*mm])]
     leftparty=[p(": CONSIGNOR :",bold),p(data.get("consignor_name",""),bold),p(data.get("consignor_address","")),p("GSTIN: "+data.get("consignor_gstin",""),bold)]
     rightparty=[p(": CONSIGNEE :",bold),p(data.get("consignee_name",""),bold),p(data.get("consignee_address","")),p("GSTIN No/Unique No : "+data.get("consignee_gstin",""),bold)]
     meta=[("INVOICE NO","invoice_no"),("CHALAN NO","challan_no"),("E WAY BILL NO","eway_bill_no"),("E WAY BILL GENERATE DATE","eway_generate_date"),("E WAY BILL VALID DATE","eway_valid_date"),("Packing list no","packing_list_no")]
